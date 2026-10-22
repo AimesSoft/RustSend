@@ -14,7 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # Dry runs can build independently; every publishing entry point shares a lock.
+  group: release-${{ github.event_name == 'workflow_dispatch' && !inputs.publish && github.run_id || 'publish' }}
   cancel-in-progress: false
 
 env:
