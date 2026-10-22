@@ -1,0 +1,8 @@
+/target/
+/vendor/bern/target/
+/vendor/bern/crates/bern-gtk/target/
+.DS_Store
+__pycache__/
+*.pyc
+/secrets/
+/dist/

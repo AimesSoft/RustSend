@@ -1,0 +1,37 @@
+[package]
+name = "bern-ffi"
+description = "In-process C ABI between native UI frontends and the Bern runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bern-script.workspace = true
+bern-protocol.workspace = true
+bern-command.workspace = true
+bern-runtime.workspace = true
+bern-media.workspace = true
+bern-image = { workspace = true, optional = true }
+bern-transport-ipc = { workspace = true, optional = true }
+bern-adapter-json = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# The JNI bridge of the Kotlin frontend.
+[target.'cfg(target_os = "android")'.dependencies]
+jni-sys = "0.4"
+
+[features]
+default = ["ipc"]
+# The local control channel for CLI, JSON and MCP entries (Unix sockets).
+ipc = ["dep:bern-transport-ipc"]
+# Decoding HDR pictures for frontends that draw them themselves (Windows).
+picture = ["dep:bern-image"]
+# The WebUI link to the engine and media hub of a separate engine host.
+remote = ["dep:bern-adapter-json", "dep:serde_json"]
+# JSON command entry for an opt-in local bridge to a browser-owned engine.
+control = ["dep:bern-adapter-json", "dep:serde_json"]
+
+# Tests cover the optional picture interface too.
+[dev-dependencies]
+bern-ffi = { path = ".", features = ["picture"] }

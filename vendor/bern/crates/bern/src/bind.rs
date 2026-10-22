@@ -1,0 +1,386 @@
+//! Typed references used by declarations.
+//!
+//! A `Binding<T>` names read-only state of type `T`; a `SessionField<T>`
+//! names writable session state. They carry no data: `rustc` uses them to
+//! check that every binding in a `ui!` declaration has the right type and
+//! that controls only write to session state.
+
+use bern_protocol::{SchemaError, Value};
+use std::marker::PhantomData;
+
+/// A value type that can cross a Bern boundary.
+pub trait BernValue: Sized + 'static {
+    /// The reference type used for this value inside declarations.
+    type Ref: Clone;
+    fn reference() -> Self::Ref;
+    fn to_value(&self) -> Value;
+    fn from_value(value: &Value) -> Result<Self, SchemaError>;
+}
+
+/// Implemented for every `#[bern::value]` enum.
+pub trait BernEnum: BernValue {}
+
+/// Implemented for enums whose variants all declare `#[label(...)]`, which
+/// makes them displayable and usable in pickers.
+pub trait LabeledEnum: BernEnum {}
+
+/// Read-only reference to state of type `T`.
+pub struct Binding<T> {
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<T> Binding<T> {
+    pub const fn declared() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> Clone for Binding<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for Binding<T> {}
+
+/// Writable reference to a session field of type `T`.
+pub struct SessionField<T> {
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<T> SessionField<T> {
+    pub const fn declared() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+
+    /// An action that sets the draft: `=> draft.page.set(Page::Home)`. A
+    /// whole number sets a decimal field: `=> draft.size.set(12)`.
+    #[allow(unused_variables)]
+    pub fn set(&self, value: impl SessionValue<T>) -> CommandRef {
+        CommandRef::declared()
+    }
+}
+
+/// What an action can set a session field of type `T` to: a `T`, or a
+/// whole number for a decimal field.
+pub trait SessionValue<T> {}
+
+impl<T> SessionValue<T> for T {}
+
+impl SessionValue<f64> for i64 {}
+
+impl SessionField<bool> {
+    /// An action that flips the draft: `=> draft.panel.toggle()`.
+    pub fn toggle(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+}
+
+impl SessionField<String> {
+    /// An action that adds text after the draft, as a key of an on-screen
+    /// keyboard types it: `=> draft.query.push_str("A")`.
+    #[allow(unused_variables)]
+    pub fn push_str(&self, text: impl SessionValue<String>) -> CommandRef {
+        CommandRef::declared()
+    }
+
+    /// An action that takes the last character off the draft, as a
+    /// keyboard's delete: `=> draft.query.pop()`.
+    pub fn pop(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+}
+
+impl<T> Clone for SessionField<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for SessionField<T> {}
+
+/// References that can be read as a value of type `T`.
+pub trait Readable<T> {}
+
+impl<T> Readable<T> for Binding<T> {}
+impl<T> Readable<T> for SessionField<T> {}
+
+/// Values and references that have a localized or textual presentation.
+pub trait Displayable {}
+
+impl Displayable for String {}
+impl Displayable for i64 {}
+impl Displayable for f64 {}
+impl Displayable for Binding<String> {}
+impl Displayable for Binding<i64> {}
+impl Displayable for Binding<f64> {}
+impl Displayable for SessionField<String> {}
+impl Displayable for SessionField<i64> {}
+impl Displayable for SessionField<f64> {}
+impl<E: LabeledEnum> Displayable for Binding<E> {}
+impl<E: LabeledEnum> Displayable for SessionField<E> {}
+
+/// Numbers a `Progress` value can be.
+pub trait Numeric {}
+
+impl Numeric for i64 {}
+impl Numeric for f64 {}
+
+/// Types usable as a stable list key.
+pub trait ListKey {}
+
+impl ListKey for Binding<i64> {}
+impl ListKey for Binding<String> {}
+
+/// Implemented by `#[bern::session]` structs.
+pub trait SessionState {
+    type Handle: Copy;
+    fn handle() -> Self::Handle;
+}
+
+/// How a component parameter of this type is passed.
+pub trait Prop {
+    type Ref;
+}
+
+impl<T: BernValue> Prop for T {
+    type Ref = T::Ref;
+}
+
+/// Convert a reference to the form a component parameter expects.
+pub trait ToRef {
+    type Ref;
+    fn to_ref(&self) -> Self::Ref;
+}
+
+impl<T: BernValue> ToRef for Binding<T> {
+    type Ref = T::Ref;
+    fn to_ref(&self) -> T::Ref {
+        T::reference()
+    }
+}
+
+impl<T: BernValue> ToRef for SessionField<T> {
+    type Ref = T::Ref;
+    fn to_ref(&self) -> T::Ref {
+        T::reference()
+    }
+}
+
+/// A command reference produced by a typed client method.
+#[must_use = "a command reference only has meaning as an action"]
+pub struct CommandRef {
+    _private: (),
+}
+
+impl CommandRef {
+    pub const fn declared() -> Self {
+        Self { _private: () }
+    }
+}
+
+/// A query binding produced by a typed client method. `T` is the query's
+/// result and `S` what a `Query` template variable shows: the result
+/// itself, or the value inside an optional result.
+#[must_use = "a query reference only has meaning as the `query:` of a `Query`"]
+pub struct QueryRef<T, S = T> {
+    _marker: PhantomData<fn() -> (T, S)>,
+}
+
+impl<T, S> QueryRef<T, S> {
+    pub const fn declared() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Query results with an empty state: lists and optionals. Only these
+/// accept the `empty:` text of a `Query`.
+pub trait EmptyResult {}
+
+impl<T> EmptyResult for Vec<T> {}
+impl<T> EmptyResult for Option<T> {}
+
+/// A window kind in the generated window handle.
+#[derive(Clone, Copy)]
+pub struct WindowRef {
+    _private: (),
+}
+
+impl WindowRef {
+    pub const fn declared() -> Self {
+        Self { _private: () }
+    }
+    /// Open the window, or activate its existing instance.
+    pub fn open(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Toggle the native full-screen presentation of the window.
+    pub fn toggle_fullscreen(&self) -> CommandRef { CommandRef::declared() }
+    /// Request closing the window instance.
+    pub fn close(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Bring the window instance to the front.
+    pub fn activate(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+}
+
+/// A media player declared with `#[bern::players]`. Its methods are the
+/// standard media commands, usable as actions such as
+/// `=> players.preview.open(clip.source)`.
+#[derive(Clone, Copy)]
+pub struct PlayerRef {
+    _private: (),
+}
+
+impl PlayerRef {
+    pub const fn declared() -> Self {
+        Self { _private: () }
+    }
+    /// Load a new source (`media.open`).
+    #[allow(unused_variables)]
+    pub fn open(&self, source: crate::media::MediaSource) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Start or resume playback (`media.play`).
+    pub fn play(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Pause playback (`media.pause`).
+    pub fn pause(&self) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Move the playback position (`media.seek`).
+    #[allow(unused_variables)]
+    pub fn seek(&self, position_ms: i64) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Set the volume between 0 and 1 (`media.set_volume`).
+    #[allow(unused_variables)]
+    pub fn set_volume(&self, volume: f64) -> CommandRef {
+        CommandRef::declared()
+    }
+    /// Mute or unmute audio (`media.set_muted`).
+    #[allow(unused_variables)]
+    pub fn set_muted(&self, muted: bool) -> CommandRef {
+        CommandRef::declared()
+    }
+}
+
+/// Values a `Video(source: …)` can follow: a `MediaSource`, optional or not.
+pub trait SourceBinding {}
+
+impl SourceBinding for Binding<crate::media::MediaSource> {}
+impl SourceBinding for Binding<Option<crate::media::MediaSource>> {}
+impl SourceBinding for SessionField<crate::media::MediaSource> {}
+impl SourceBinding for SessionField<Option<crate::media::MediaSource>> {}
+impl SourceBinding for crate::media::MediaSourceRef {}
+
+/// A session value that can hold the key of the item a scroll view stands
+/// at.
+pub trait PositionValue {}
+
+impl PositionValue for i64 {}
+impl PositionValue for String {}
+
+/// A session value that can hold the file a user chose or dropped.
+pub trait FileValue {}
+
+impl FileValue for crate::media::MediaSource {}
+impl FileValue for Option<crate::media::MediaSource> {}
+
+macro_rules! scalar {
+    ($ty:ty, $variant:ident, $name:literal) => {
+        impl BernValue for $ty {
+            type Ref = Binding<$ty>;
+            fn reference() -> Self::Ref {
+                Binding::declared()
+            }
+            fn to_value(&self) -> Value {
+                Value::$variant(self.clone())
+            }
+            fn from_value(value: &Value) -> Result<Self, SchemaError> {
+                match value {
+                    Value::$variant(value) => Ok(value.clone()),
+                    other => Err(SchemaError::new(format!(
+                        concat!("expected ", $name, ", found {}"),
+                        other.kind_name()
+                    ))),
+                }
+            }
+        }
+    };
+}
+
+scalar!(bool, Bool, "bool");
+scalar!(i64, Int, "int");
+scalar!(f64, Float, "float");
+scalar!(String, Text, "text");
+
+impl BernValue for () {
+    type Ref = Binding<()>;
+    fn reference() -> Self::Ref {
+        Binding::declared()
+    }
+    fn to_value(&self) -> Value {
+        Value::Unit
+    }
+    fn from_value(value: &Value) -> Result<Self, SchemaError> {
+        match value {
+            Value::Unit => Ok(()),
+            other => Err(SchemaError::new(format!(
+                "expected unit, found {}",
+                other.kind_name()
+            ))),
+        }
+    }
+}
+
+impl<T: BernValue> BernValue for Option<T> {
+    type Ref = Binding<Option<T>>;
+    fn reference() -> Self::Ref {
+        Binding::declared()
+    }
+    fn to_value(&self) -> Value {
+        match self {
+            None => Value::Optional(None),
+            Some(value) => Value::some(value.to_value()),
+        }
+    }
+    fn from_value(value: &Value) -> Result<Self, SchemaError> {
+        match value {
+            Value::Optional(None) => Ok(None),
+            Value::Optional(Some(value)) => T::from_value(value).map(Some),
+            other => Err(SchemaError::new(format!(
+                "expected optional, found {}",
+                other.kind_name()
+            ))),
+        }
+    }
+}
+
+impl<T: BernValue> BernValue for Vec<T> {
+    type Ref = Binding<Vec<T>>;
+    fn reference() -> Self::Ref {
+        Binding::declared()
+    }
+    fn to_value(&self) -> Value {
+        Value::List(self.iter().map(BernValue::to_value).collect())
+    }
+    fn from_value(value: &Value) -> Result<Self, SchemaError> {
+        match value {
+            Value::List(items) => items.iter().map(T::from_value).collect(),
+            other => Err(SchemaError::new(format!(
+                "expected list, found {}",
+                other.kind_name()
+            ))),
+        }
+    }
+}

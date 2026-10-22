@@ -1,0 +1,60 @@
+[app]
+id = "rust_send"
+bundle_id = "com.aimessoft.rustsend"
+version = "1.0.0"
+name = { "zh-Hans" = "RustSend", "en" = "RustSend" }
+
+[app.icon]
+default = "bern/ui/assets/rustsend-512.png"
+windows = "bern/ui/assets/rustsend-256.png"
+
+[languages]
+supported = ["zh-Hans", "en"]
+default = "zh-Hans"
+strict = true
+
+[theme]
+mode = "system"
+
+[resources]
+paths = ["bern/ui/assets/localsend.svg", "bern/ui/assets/rustsend-512.png", "LICENSE", "NOTICE"]
+
+[layouts]
+compact_below = 640
+medium_below = 1000
+expanded_below = 1440
+
+[protocol]
+package = "rustsend-protocol"
+source = "bern/protocol/src/lib.rs"
+
+[engine]
+package = "rustsend-engine"
+path = "bern/engine"
+type = "rustsend_engine::RustSendEngine"
+
+[ui]
+package = "rustsend-ui"
+sources = ["bern/ui/src/lib.rs"]
+root = "app"
+
+[targets.macos]
+platform = "macos"
+channels = ["ipc"]
+
+[targets.windows]
+platform = "windows"
+channels = ["ipc"]
+
+[targets.linux]
+platform = "linux"
+channels = ["ipc"]
+
+[targets.android]
+platform = "android"
+channels = ["ipc"]
+android = { network = true, multicast = true }
+
+[targets.ios]
+platform = "ios"
+channels = ["ipc"]

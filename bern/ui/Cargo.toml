@@ -1,0 +1,10 @@
+[package]
+name = "rustsend-ui"
+version = "1.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[dependencies]
+bern.workspace = true
+rustsend-protocol = { path = "../protocol" }

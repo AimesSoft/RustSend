@@ -1,0 +1,23 @@
+[package]
+name = "bern"
+description = "Application-facing interface of the Bern framework"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bern-script.workspace = true
+bern-macros.workspace = true
+bern-protocol.workspace = true
+bern-command.workspace = true
+bern-runtime.workspace = true
+bern-media.workspace = true
+
+# The local time zone; the browser's comes from the page.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[dev-dependencies]
+trybuild = "1"
+serde_json.workspace = true

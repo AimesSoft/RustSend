@@ -1,0 +1,633 @@
+/* Bern Web: drawing, motion, styles and the controls media applications
+   need. Appended to bern.css. */
+
+/* MARK: - Drawing */
+
+.bern-sidebar-header {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 8px 14px;
+  font-weight: 600;
+}
+.bern-sidebar { width: var(--bern-sidebar-width, 232px); }
+@container (max-width: 767px) {
+  .bern-sidebar { width: 100%; }
+}
+.bern-sidebar-label { flex: 1; min-width: 0; }
+.bern-sidebar-badge { font-size: 12px; font-variant-numeric: tabular-nums; opacity: .75; }
+.bern-image-template {
+  display: inline-block;
+  background: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  flex-shrink: 0;
+}
+
+.bern-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bern-canvas.bern-fill-width {
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.bern-canvas.bern-fill-height {
+  flex: 1 1 auto;
+  align-self: stretch;
+}
+
+.bern-layers > .bern-canvas.bern-fill-height {
+  height: 100%;
+}
+
+/* A stack of a given size keeps its layers' cell that size: a larger layer
+   stands out of it by the stack's alignment, centered by default, as on
+   the other targets, instead of widening the cell from its leading edge. */
+.bern-layers.bern-sized-width {
+  grid-template-columns: minmax(0, 100%);
+}
+
+.bern-layers.bern-sized-height {
+  grid-template-rows: minmax(0, 100%);
+}
+
+/* A stack with a backdrop (a drawing without a size) fills across the
+   column or grid cell it stands in, as a block does, and keeps the height
+   its other layers give. */
+:is(.bern-vstack, .bern-detail-body, .bern-nav-page, .bern-tabpanels, .bern-adaptive, .bern-window-content, .bern-modal-content, .bern-grid) > .bern-layers:has(> .bern-canvas.bern-fill-width.bern-fill-height):not(.bern-sized-width) {
+  align-self: stretch;
+  justify-self: stretch;
+  width: auto;
+  max-width: none;
+}
+
+/* In a `Stack`, a layer that holds a drawing without a size fills the
+   stack in that direction, as a flexible view does; other layers keep
+   their own size and the stack's alignment. */
+.bern-layers > :is(.bern-fill-width, .bern-layout-width):not(.bern-sized-width) {
+  justify-self: stretch;
+  width: auto;
+  min-width: 0;
+}
+
+.bern-layers > :is(.bern-fill-height, .bern-layout-height):not(.bern-sized-height) {
+  align-self: stretch;
+  /* Let a flexible layer fit a definite grid height; its own scroll view
+     absorbs overflow instead of pushing siblings such as a footer out. */
+  min-height: 0;
+}
+
+/* In a column a child that holds such a drawing, a scroll view, a grid or
+   a video is as wide as the column; in a row it takes the room left. A
+   page's own room (a navigation page, a tab's page, the layout an
+   `Adaptive` chose) is such a column: a stack holding a form or a scroll
+   view fills it, as on the native targets. */
+:is(.bern-vstack, .bern-detail-body, .bern-nav-page, .bern-tabpanels, .bern-adaptive, .bern-window-content, .bern-modal-content, .bern-query, .bern-query-content, .bern-drop, .bern-gesture, .bern-inspector, .bern-popover-panel, .bern-search-results) > :is(.bern-fill-width, .bern-layout-width):not(.bern-inspector, .bern-sized-width) {
+  align-self: stretch;
+  width: auto;
+}
+
+:is(.bern-detail-body, .bern-nav-page, .bern-tabpanels, .bern-adaptive, .bern-window-content, .bern-modal-content, .bern-query, .bern-query-content, .bern-drop, .bern-gesture) > :is(.bern-fill-height, .bern-layout-height):not(.bern-inspector, .bern-sized-height) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.bern-vstack > :is(.bern-fill-height, .bern-layout-height):not(.bern-sized-height) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.bern-hstack > :is(.bern-fill-width, .bern-layout-width):not(.bern-sized-width) {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+.bern-hstack > :is(.bern-fill-height, .bern-layout-height):not(.bern-sized-height) {
+  align-self: stretch;
+}
+
+.bern-canvas-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* MARK: - Text marks */
+
+.bern-marked {
+  position: relative;
+  isolation: isolate;
+}
+
+.bern-marks {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.bern-mark {
+  position: absolute;
+}
+
+/* MARK: - Theme roles the page derives */
+
+:root,
+.bern-appearance-light,
+.bern-appearance-dark {
+  --bern-fill-subtle: var(--bern-hover-overlay);
+  --bern-fill-strong: var(--bern-pressed-overlay);
+  --bern-selection-background: var(--bern-accent);
+  --bern-selection-foreground: var(--bern-on-accent);
+}
+
+/* A part in a fixed appearance takes that appearance's text color: the
+   color inherited from outside was resolved in the page's appearance. */
+.bern-appearance-light {
+  color: var(--bern-text-primary);
+  color-scheme: light;
+}
+
+.bern-appearance-dark {
+  color: var(--bern-text-primary);
+  color-scheme: dark;
+}
+
+/* MARK: - Styles */
+
+.bern-styled {
+  transition: background-color 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.2s ease-out;
+}
+
+.bern-styled.bern-styled-foreground .bern-icon {
+  color: inherit;
+}
+
+.bern-styled.bern-styled-quiet:hover,
+.bern-styled.bern-styled-quiet:active {
+  background-color: transparent !important;
+}
+
+.bern-button.bern-size-small,
+.bern-icon-button.bern-size-small {
+  height: 24px;
+  min-width: 24px;
+  font-size: calc(12px + var(--bern-text-up));
+}
+
+.bern-button.bern-size-large,
+.bern-icon-button.bern-size-large {
+  height: 42px;
+  min-width: 42px;
+  padding-inline: 20px;
+  font-size: calc(14.5px + var(--bern-text-up));
+  font-weight: 600;
+}
+
+.bern-button.bern-size-extra_large,
+.bern-icon-button.bern-size-extra_large {
+  height: 52px;
+  min-width: 52px;
+  padding-inline: 22px;
+  font-size: calc(17px + var(--bern-text-up));
+}
+
+/* A chip keeps the chip's size whatever size its style asks for. */
+.bern-button.bern-chip-button[class] {
+  height: 30px;
+  min-width: 0;
+  padding-inline: 12px;
+  font-size: calc(13px + var(--bern-text-up));
+  font-weight: 500;
+}
+
+/* MARK: - Sidebar */
+
+.bern-sidebar-footer {
+  flex: none;
+  padding: 10px 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* MARK: - Reveal on hover */
+
+.bern-reveal {
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+
+.bern-reveal-host:hover > .bern-reveal,
+.bern-reveal-host:focus-within > .bern-reveal,
+.bern-reveal:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .bern-reveal {
+    opacity: 1;
+  }
+}
+
+/* MARK: - Immersive windows */
+
+.bern-immersive .bern-page-header {
+  display: none;
+}
+
+.bern-immersive.bern-idle,
+.bern-immersive.bern-idle * {
+  cursor: none !important;
+}
+
+/* MARK: - Buttons with content and toggle buttons */
+
+.bern-content-button {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+/* Flexible content needs the button's proposed size even when its children
+   have no intrinsic dimensions (for example an overlaid video and ScaleBox). */
+.bern-content-button > :is(.bern-fill-width, .bern-layout-width):not(.bern-sized-width) {
+  width: 100%;
+}
+.bern-content-button > :is(.bern-fill-height, .bern-layout-height):not(.bern-sized-height) {
+  height: 100%;
+}
+
+.bern-content-button:not(.bern-styled-look):active {
+  filter: brightness(0.92);
+}
+
+.bern-content-button:focus-visible {
+  outline: 2px solid var(--bern-focus-indicator);
+  outline-offset: 2px;
+}
+
+.bern-toggle-button[aria-pressed="true"] {
+  background: var(--bern-accent);
+  color: var(--bern-on-accent);
+}
+
+.bern-toggle-button[aria-pressed="true"] .bern-icon {
+  color: inherit;
+}
+
+/* MARK: - Split buttons and popover panels */
+
+.bern-split-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bern-split-more {
+  width: 24px;
+  min-width: 24px;
+}
+
+.bern-popover-panel,
+.bern-search-results {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 12px;
+  min-width: 240px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--bern-separator);
+  border-radius: var(--bern-radius-card);
+  background: var(--bern-surface-raised);
+  color: var(--bern-text-primary);
+  box-shadow: 0 12px 32px -12px var(--bern-scrim);
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bern-popover-panel:popover-open,
+.bern-search-results:popover-open {
+  display: flex;
+}
+
+/* A popover panel opens from its trigger on a spring (bern.js). */
+.bern-search-results:popover-open {
+  animation: bern-fade 120ms ease-out;
+}
+
+.bern-search-results {
+  padding: 4px;
+  gap: 0;
+}
+
+.bern-search {
+  position: relative;
+}
+
+/* MARK: - Notices */
+
+.bern-toasts {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 30px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* A toast stands out against the page: the page's text color as its
+ * background, the page's color as its text. */
+.bern-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px 0 14px;
+  border-radius: 999px;
+  background: var(--bern-text-primary);
+  color: var(--bern-surface-canvas);
+  box-shadow: 0 12px 30px -8px rgb(0 0 0 / 0.5);
+  font-size: calc(13px + var(--bern-text-up));
+  white-space: nowrap;
+}
+
+/* MARK: - Inspector */
+
+.bern-detail {
+  position: relative;
+  /* The inspector slides out past the trailing edge; nothing scrolls to it. */
+  overflow: clip;
+}
+
+.bern-detail .bern-detail-body {
+  transition: margin-inline-end 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+.bern-detail.bern-inspecting .bern-detail-body {
+  margin-inline-end: var(--bern-inspector-width);
+}
+
+.bern-inspector {
+  position: absolute;
+  top: 64px;
+  bottom: 0;
+  right: 0;
+  width: var(--bern-inspector-width);
+  /* It scrolls down only, as the native inspectors do. */
+  overflow: hidden auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bern-surface-panel);
+  border-left: 1px solid var(--bern-separator);
+  z-index: 5;
+}
+
+@container (max-width: 767px) {
+  .bern-detail.bern-inspecting .bern-detail-body {
+    margin-inline-end: 0;
+  }
+  .bern-inspector {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-height: 60%;
+    border-left: 0;
+    border-top: 1px solid var(--bern-separator);
+    border-radius: var(--bern-radius-card) var(--bern-radius-card) 0 0;
+    box-shadow: 0 -12px 32px -12px var(--bern-scrim);
+  }
+}
+
+/* MARK: - Drop areas and gestures */
+
+.bern-drop,
+.bern-gesture {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bern-drop > *,
+.bern-gesture > * {
+  flex: 1 1 auto;
+}
+
+.bern-pinch {
+  touch-action: pan-x pan-y;
+}
+
+.bern-swipe-vertical {
+  touch-action: pan-x;
+  user-select: none;
+}
+
+.bern-swipe-horizontal {
+  touch-action: pan-y;
+  user-select: none;
+}
+
+/* MARK: - Snapping scroll views */
+
+.bern-snap.bern-scroll-horizontal {
+  scroll-snap-type: x mandatory;
+}
+
+.bern-snap.bern-scroll-vertical {
+  scroll-snap-type: y mandatory;
+}
+
+.bern-snap-center [data-bern-item] {
+  scroll-snap-align: center;
+}
+
+.bern-snap-start [data-bern-item] {
+  scroll-snap-align: start;
+}
+
+/* MARK: - Rounded video */
+
+.bern-video-surface.bern-video-rounded {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.bern-video:has(> .bern-video-rounded) {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+
+/* Layers of a `Stack` paint in the order they are written, also while one
+   of them is scaled or moved, which would otherwise lift it above the
+   layers after it. */
+.bern-layers > * {
+  position: relative;
+}
+
+/* A horizontal scroll view's content is as wide as it needs to be, and an
+   element with a size of its own keeps it in a row or column. */
+.bern-scroll-horizontal > * {
+  width: max-content;
+  min-width: 100%;
+}
+
+.bern-hstack > .bern-sized-width,
+.bern-vstack > .bern-sized-height,
+.bern-hstack > .bern-fixed-width,
+.bern-vstack > .bern-fixed-height {
+  flex-shrink: 0;
+}
+
+/* MARK: - Rails */
+
+.bern-rail {
+  position: relative;
+  min-width: 0;
+  pointer-events: none;
+  /* How far the scale runs past each end; a child at fraction f stands at
+     f × (length + 2 × overhang) − overhang. */
+  --bern-rail-overhang: 0px;
+}
+
+.bern-rail > * {
+  pointer-events: auto;
+}
+
+/* A positioned rail's empty area must reach the controls underneath, too.
+   Layers may wrap the rail to supply its style (for example chapter marks
+   over a seek slider). Interactive rail items keep their own hit targets. */
+.bern-positioned:has(> .bern-rail),
+.bern-positioned:has(> .bern-layers > .bern-rail) {
+  pointer-events: none;
+}
+
+/* Bare drawing items are decoration; gestures use an interactive wrapper. */
+.bern-rail > .bern-canvas {
+  pointer-events: none;
+}
+
+/* Across a horizontal rail the children share one cell: the rail is as
+   thick as the thickest, and each sits at its fraction of the width. */
+.bern-rail-horizontal {
+  display: grid;
+  grid-template-columns: 100%;
+}
+
+.bern-rail-horizontal > .bern-rail-item {
+  grid-area: 1 / 1;
+  justify-self: start;
+  margin-inline-start: calc(var(--bern-rail-at, 0) * (100% + 2 * var(--bern-rail-overhang)) - var(--bern-rail-overhang));
+}
+
+.bern-rail-horizontal > .bern-rail-span {
+  width: calc(var(--bern-rail-span, 0) * (100% + 2 * var(--bern-rail-overhang)));
+}
+
+.bern-rail-vertical > .bern-rail-item {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(var(--bern-rail-at, 0) * (100% + 2 * var(--bern-rail-overhang)) - var(--bern-rail-overhang));
+}
+
+.bern-rail-vertical > .bern-rail-span {
+  height: calc(var(--bern-rail-span, 0) * (100% + 2 * var(--bern-rail-overhang)));
+  inset-inline-end: 0;
+}
+
+.bern-popover-wrap {
+  display: inline-flex;
+}
+
+/* Content wider than the detail column, such as a rail's last label, does
+   not make the column scroll sideways, as on the native targets. */
+.bern-detail-body {
+  overflow-x: hidden;
+}
+
+.bern-scale-box { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.bern-scale-scene { position: absolute; transform-origin: top left; }
+.bern-positioned { position: absolute; display: grid; min-width: 0; min-height: 0; }
+.bern-positioned > * { grid-area: 1 / 1; min-width: 0; min-height: 0; }
+
+/* A positioned layer receives an explicit size from its coordinate space. */
+.bern-positioned > :not(.bern-sized-width) { width: 100%; justify-self: stretch; }
+.bern-positioned > :not(.bern-sized-height) { height: 100%; align-self: stretch; }
+body:has(.bern-window-page.bern-immersive) .bern-appbar { display: none; }
+
+.bern-sized-width > .bern-dropdown-wrap { min-width: 0; width: 100%; }
+.bern-sized-width > .bern-dropdown-wrap > .bern-dropdown { min-width: 0; width: 100%; }
+.bern-marquee { position: relative; overflow: hidden; }
+.bern-marquee-line { position: absolute; width: max-content; white-space: nowrap; animation: bern-marquee 12s linear infinite; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
+@keyframes bern-marquee { from { transform: translateX(var(--marquee-width)); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .bern-marquee-line { animation: none; left: 28%; } }
+
+.bern-split-main { width: auto; gap: 6px; padding-inline: 8px; }
+.bern-marquee-line.bern-marquee-reduced { animation: none; left: 28%; }
+
+/* A web toolbar has no shared surfaces: a group is a run of ghost icon
+ * buttons 6 px apart, and it keeps 6 px from what stands next to it in its
+ * row, another group or not, whatever gap the row asks for. */
+.bern-control-group {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+.bern-hstack > * + .bern-control-group {
+  margin-inline-start: calc(6px - var(--bern-gap, 6px));
+}
+.bern-hstack > .bern-control-group:has(+ :not(.bern-control-group)) {
+  margin-inline-end: calc(6px - var(--bern-gap, 6px));
+}
+/* A split button is one outlined button in two parts, the arrow behind a
+ * divider; on, the main part takes the stronger fill and its icon the
+ * accent. */
+.bern-split-capsule {
+  gap: 0;
+  height: var(--bern-compact-height);
+  border-radius: var(--bern-radius-control);
+  box-shadow: inset 0 0 0 1px var(--bern-separator);
+  overflow: hidden;
+}
+.bern-split-capsule > .bern-icon-button {
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+  color: var(--bern-text-secondary);
+  font-size: calc(13px + var(--bern-text-up));
+  font-weight: 500;
+}
+.bern-split-capsule > .bern-icon-button[aria-pressed="true"] { color: var(--bern-text-primary); }
+.bern-split-capsule.bern-split-selected > .bern-split-main { background: var(--bern-pressed-overlay); }
+.bern-split-capsule.bern-split-selected > .bern-split-main .bern-icon { color: var(--bern-accent); }
+.bern-split-capsule > .bern-split-main { width: auto; gap: 6px; padding: 0 10px 0 12px; }
+.bern-split-capsule > .bern-split-more { width: 30px; box-shadow: inset 1px 0 0 var(--bern-separator); }
+.bern-split-capsule > .bern-split-more .bern-icon { width: 14px; height: 14px; }

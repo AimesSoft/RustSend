@@ -1,0 +1,9 @@
+[package]
+name = "rustsend-protocol"
+version = "1.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[dependencies]
+bern.workspace = true

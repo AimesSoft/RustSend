@@ -1,0 +1,284 @@
+//! Theme variables for the page, from Bern theme snapshots.
+//!
+//! The build resolves the snapshots the page can need — light and dark,
+//! each with standard and more contrast — and writes them as `--bern-*`
+//! custom properties chosen by media queries, so the first frame already
+//! uses the right mode and a preference change switches every control in
+//! one style recalculation. `[theme].mode = "light"` or `"dark"` emits that
+//! mode only.
+
+use bern_ir::{Application, ThemeMode};
+use bern_theme::{ContrastPolicy, Mode, Snapshot, Srgb, generate};
+
+/// `surface.canvas` → `--bern-surface-canvas`.
+pub fn variable(token: &str) -> String {
+    format!("--bern-{}", token.replace(['.', '_'], "-"))
+}
+
+fn declarations(snapshot: &Snapshot) -> String {
+    let mut css = format!("  color-scheme: {};\n", snapshot.mode.name());
+    for token in &snapshot.tokens {
+        let value = if token.alpha == 255 {
+            token.color.hex()
+        } else {
+            format!(
+                "rgb({} {} {} / {:.3})",
+                token.color.r,
+                token.color.g,
+                token.color.b,
+                f64::from(token.alpha) / 255.0
+            )
+        };
+        css.push_str(&format!("  {}: {value};\n", variable(token.name)));
+    }
+    css
+}
+
+fn rule(selector: &str, snapshot: &Snapshot) -> String {
+    format!("{selector} {{\n{}}}\n", declarations(snapshot))
+}
+
+/// Snapshots for the application's seed in the modes it allows.
+pub fn snapshots(app: &Application) -> Vec<Snapshot> {
+    let seed = app
+        .theme
+        .brand_seed
+        .map(|seed| Srgb::new(seed.red, seed.green, seed.blue));
+    let modes: &[Mode] = match app.theme.mode {
+        ThemeMode::System => &[Mode::Light, Mode::Dark],
+        ThemeMode::Light => &[Mode::Light],
+        ThemeMode::Dark => &[Mode::Dark],
+    };
+    modes
+        .iter()
+        .flat_map(|mode| {
+            [ContrastPolicy::Standard, ContrastPolicy::More]
+                .map(|policy| generate(seed, *mode, policy))
+        })
+        .collect()
+}
+
+/// The four snapshots of one seed: light and dark, each with standard and
+/// more contrast.
+struct Set {
+    light: Snapshot,
+    light_more: Snapshot,
+    dark: Snapshot,
+    dark_more: Snapshot,
+}
+
+impl Set {
+    fn new(light_seed: Option<Srgb>, dark_seed: Option<Srgb>) -> Self {
+        Self {
+            light: generate(light_seed, Mode::Light, ContrastPolicy::Standard),
+            light_more: generate(light_seed, Mode::Light, ContrastPolicy::More),
+            dark: generate(dark_seed, Mode::Dark, ContrastPolicy::Standard),
+            dark_more: generate(dark_seed, Mode::Dark, ContrastPolicy::More),
+        }
+    }
+
+    /// Rules for `scope`: the page's own appearance, the one the
+    /// application chooses at run time (`data-bern-appearance` on the
+    /// root), and parts with an `appearance` of their own.
+    fn rules(&self, css: &mut String, scope: &str, mode: ThemeMode) {
+        let (base, base_more) = match mode {
+            ThemeMode::Dark => (&self.dark, &self.dark_more),
+            _ => (&self.light, &self.light_more),
+        };
+        let more = |selector: &str, snapshot: &Snapshot| {
+            format!(
+                "@media (prefers-contrast: more) {{\n{}}}\n",
+                rule(selector, snapshot)
+            )
+        };
+        css.push_str(&rule(scope, base));
+        css.push_str(&more(scope, base_more));
+        if mode == ThemeMode::System {
+            let follows = format!("{scope}:not([data-bern-appearance=\"light\"])");
+            css.push_str(&format!(
+                "@media (prefers-color-scheme: dark) {{\n{}}}\n",
+                rule(&follows, &self.dark)
+            ));
+            css.push_str(&format!(
+                "@media (prefers-color-scheme: dark) and (prefers-contrast: more) {{\n{}}}\n",
+                rule(&follows, &self.dark_more)
+            ));
+        }
+        for (name, snapshot, snapshot_more) in [
+            ("light", &self.light, &self.light_more),
+            ("dark", &self.dark, &self.dark_more),
+        ] {
+            let chosen = format!("{scope}[data-bern-appearance=\"{name}\"]");
+            css.push_str(&rule(&chosen, snapshot));
+            css.push_str(&more(&chosen, snapshot_more));
+            let part = format!("{scope} .bern-appearance-{name}");
+            css.push_str(&rule(&part, snapshot));
+            css.push_str(&more(&part, snapshot_more));
+        }
+    }
+}
+
+fn srgb(color: &bern_ir::Srgb) -> Srgb {
+    Srgb::new(color.red, color.green, color.blue)
+}
+
+/// The `theme.css` stylesheet: the application's seed, then each accent
+/// of `style!` the application may choose at run time
+/// (`data-bern-accent` on the root).
+pub fn stylesheet(app: &Application) -> String {
+    let seed = app
+        .theme
+        .brand_seed
+        .map(|seed| Srgb::new(seed.red, seed.green, seed.blue));
+    let mut css = format!(
+        "/* Generated by Bern from Bern Theme Algorithm v{}. Do not edit. */\n",
+        bern_theme::ALGORITHM_VERSION
+    );
+    Set::new(seed, seed).rules(&mut css, ":root", app.theme.mode);
+    for accent in &app.style.accents {
+        let (light, dark) = match &accent.color {
+            bern_ir::style::ColorRef::Fixed { light, dark } => {
+                (Some(srgb(light)), Some(srgb(dark)))
+            }
+            bern_ir::style::ColorRef::Role { .. } => (seed, seed),
+        };
+        let scope = format!(":root[data-bern-accent=\"{}\"]", accent.name.to_lowercase());
+        Set::new(light, dark).rules(&mut css, &scope, app.theme.mode);
+    }
+    css.push_str(&text_styles(&app.style.text_weights));
+    css
+}
+
+/// App typography wins over the default type scale in `bern.css`, even
+/// though the theme stylesheet loads first. Keep overrides scoped to the
+/// Bern host so embedded pages retain their own typography.
+fn text_styles(styles: &[bern_ir::style::TextWeight]) -> String {
+    let mut css = String::new();
+    for style in styles {
+        let weight = match style.weight.as_str() {
+            "ultralight" => 100,
+            "thin" => 200,
+            "light" => 300,
+            "regular" => 400,
+            "medium" => 500,
+            "semibold" => 600,
+            "bold" => 700,
+            "heavy" => 800,
+            "black" => 900,
+            _ => continue,
+        };
+        css.push_str(&format!(
+            ".bern-host .bern-{} {{\n  font-weight: {weight};\n",
+            style.style.replace('_', "-")
+        ));
+        if let Some(size) = style.size {
+            css.push_str(&format!(
+                "  font-size: calc({size}px + var(--bern-text-up));\n  line-height: 1.3;\n"
+            ));
+        }
+        css.push_str("}\n");
+        // A television (`bern-television` on the document) reads the
+        // design's sizes for it.
+        if let Some(size) = style.tv_size {
+            css.push_str(&format!(
+                ".bern-television .bern-host .bern-{} {{\n  font-size: calc({size}px + var(--bern-text-up));\n}}\n",
+                style.style.replace('_', "-")
+            ));
+        }
+    }
+    css
+}
+
+/// Pairings that failed or fell back, reported as build diagnostics.
+pub fn problems(app: &Application) -> Vec<String> {
+    let mut problems = Vec::new();
+    for snapshot in snapshots(app) {
+        let context = format!("{} {}", snapshot.mode.name(), snapshot.contrast.name());
+        for reason in &snapshot.fallbacks {
+            problems.push(format!("theme ({context}): {reason}"));
+        }
+        for check in snapshot.checks.iter().filter(|check| !check.passed()) {
+            problems.push(format!(
+                "theme ({context}): `{}` on `{}` is {:.2}:1, needs {}:1",
+                check.foreground, check.background, check.ratio, check.required
+            ));
+        }
+    }
+    problems
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bern_ir::style::TextWeight;
+
+    #[test]
+    fn typography_uses_css_weights_and_preserves_optional_sizes() {
+        let css = text_styles(&[
+            TextWeight {
+                style: "large_title".into(),
+                weight: "bold".into(),
+                size: Some(30.0),
+                tv_size: Some(34.0),
+            },
+            TextWeight {
+                style: "headline".into(),
+                weight: "semibold".into(),
+                size: None,
+                tv_size: None,
+            },
+            TextWeight {
+                style: "caption".into(),
+                weight: "medium".into(),
+                size: Some(11.5),
+                tv_size: None,
+            },
+        ]);
+        assert!(css.contains(".bern-host .bern-large-title {\n  font-weight: 700;"));
+        assert!(css.contains("font-size: calc(30px + var(--bern-text-up));"));
+        assert!(css.contains(".bern-host .bern-headline {\n  font-weight: 600;\n}"));
+        assert!(css.contains("font-size: calc(11.5px + var(--bern-text-up));"));
+        // On a television the page takes the television's sizes.
+        assert!(css.contains(
+            ".bern-television .bern-host .bern-large-title {\n  font-size: calc(34px + var(--bern-text-up));\n}"
+        ));
+    }
+
+    #[test]
+    fn neutral_sidebar_fills_keep_readable_text_across_accents_and_appearances() {
+        // Exercise the same tokens to which fill.subtle/strong map on the
+        // Web, not the accent pairing used by the default selected row.
+        for seed in [
+            None,
+            Some(Srgb::new(0xFF, 0x2E, 0x55)),
+            Some(Srgb::new(0x2A, 0x51, 0xD4)),
+            Some(Srgb::new(0x00, 0xB8, 0x6B)),
+            Some(Srgb::new(0x07, 0xFF, 0x94)),
+        ] {
+            for mode in [Mode::Light, Mode::Dark] {
+                for policy in [ContrastPolicy::Standard, ContrastPolicy::More] {
+                    let snapshot = generate(seed, mode, policy);
+                    let text = snapshot.token("text.primary").unwrap();
+                    let minimum = if policy == ContrastPolicy::More {
+                        7.0
+                    } else {
+                        4.5
+                    };
+                    for background in [
+                        "hover.overlay",
+                        "pressed.overlay",
+                        "surface.canvas",
+                        "surface.panel",
+                        "surface.raised",
+                    ] {
+                        let ratio = bern_theme::contrast(text, snapshot.token(background).unwrap());
+                        assert!(
+                            ratio >= minimum,
+                            "{seed:?} {mode:?} {policy:?}: text.primary on {background} = {ratio}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

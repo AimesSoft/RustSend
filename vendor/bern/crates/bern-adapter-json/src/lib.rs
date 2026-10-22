@@ -1,0 +1,810 @@
+//! JSON encoding for control channels.
+//!
+//! JSON is an encoding, not a transport and not MCP. This crate maps
+//! schema-typed values to JSON and back, defines the control messages and
+//! derives JSON Schema for tool descriptions. Mappings are explicit:
+//!
+//! * `int` is a JSON number when |n| ≤ 2^53 − 1, otherwise a decimal string;
+//!   decoders accept both, so no 64-bit value is silently rounded.
+//! * enums are their declared variant name, or `{"Variant": {fields}}`.
+//! * optionals are `null` or the value; records are objects.
+//! * revisions and fingerprints are decimal strings.
+
+use bern_protocol::{
+    CommandError, CommandSpec, PROTOCOL_VERSION, ProtocolDescriptor, SchemaError, Type, TypeTable,
+    Value,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value as Json, json};
+
+const SAFE_INTEGER: i64 = (1 << 53) - 1;
+
+pub fn to_json(value: &Value, ty: &Type, types: &TypeTable) -> Json {
+    match (value, ty) {
+        (Value::Unit, _) => Json::Null,
+        (Value::Bool(value), _) => Json::Bool(*value),
+        (Value::Int(value), _) => {
+            if (-SAFE_INTEGER..=SAFE_INTEGER).contains(value) {
+                json!(value)
+            } else {
+                Json::String(value.to_string())
+            }
+        }
+        (Value::Float(value), _) => json!(value),
+        (Value::Text(value), _) => Json::String(value.clone()),
+        (Value::Enum { variant, fields }, Type::Enum { name }) => {
+            let Some(def) = types.enum_def(name) else {
+                return Json::Null;
+            };
+            let variant_def = &def.variants[*variant as usize];
+            if variant_def.fields.is_empty() {
+                Json::String(variant_def.name.clone())
+            } else {
+                let mut object = Map::new();
+                for (value, field) in fields.iter().zip(&variant_def.fields) {
+                    object.insert(field.name.clone(), to_json(value, &field.ty, types));
+                }
+                let mut outer = Map::new();
+                outer.insert(variant_def.name.clone(), Json::Object(object));
+                Json::Object(outer)
+            }
+        }
+        (Value::Optional(None), _) => Json::Null,
+        (Value::Optional(Some(value)), Type::Optional { inner }) => to_json(value, inner, types),
+        (Value::Record(values), Type::Record { name }) => {
+            let Some(def) = types.record_def(name) else {
+                return Json::Null;
+            };
+            Json::Object(
+                values
+                    .iter()
+                    .zip(&def.fields)
+                    .map(|(value, field)| (field.name.clone(), to_json(value, &field.ty, types)))
+                    .collect(),
+            )
+        }
+        (Value::List(items), Type::List { inner }) => Json::Array(
+            items
+                .iter()
+                .map(|item| to_json(item, inner, types))
+                .collect(),
+        ),
+        _ => Json::Null,
+    }
+}
+
+fn mismatch(ty: &Type, json: &Json) -> SchemaError {
+    SchemaError::new(format!("expected {}, found {json}", ty.display()))
+}
+
+pub fn from_json(json: &Json, ty: &Type, types: &TypeTable) -> Result<Value, SchemaError> {
+    let value = match ty {
+        Type::Unit => match json {
+            Json::Null => Value::Unit,
+            other => return Err(mismatch(ty, other)),
+        },
+        Type::Bool => Value::Bool(json.as_bool().ok_or_else(|| mismatch(ty, json))?),
+        Type::Int => match json {
+            Json::Number(number) => Value::Int(number.as_i64().ok_or_else(|| mismatch(ty, json))?),
+            Json::String(text) => Value::Int(text.parse().map_err(|_| mismatch(ty, json))?),
+            other => return Err(mismatch(ty, other)),
+        },
+        Type::Float => Value::Float(json.as_f64().ok_or_else(|| mismatch(ty, json))?),
+        Type::Text => Value::Text(json.as_str().ok_or_else(|| mismatch(ty, json))?.to_string()),
+        Type::Enum { name } => {
+            let def = types
+                .enum_def(name)
+                .ok_or_else(|| SchemaError::new(format!("unknown enum `{name}`")))?;
+            let (variant_name, payload) = match json {
+                Json::String(variant) => (variant.as_str(), None),
+                Json::Object(object) if object.len() == 1 => {
+                    let (variant, payload) = object.iter().next().unwrap();
+                    (variant.as_str(), Some(payload))
+                }
+                other => return Err(mismatch(ty, other)),
+            };
+            let index = def.variant_index(variant_name).ok_or_else(|| {
+                SchemaError::new(format!(
+                    "`{name}` has no variant `{variant_name}`; expected one of {}",
+                    def.variants
+                        .iter()
+                        .map(|variant| variant.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ))
+            })?;
+            let variant_def = &def.variants[index];
+            let mut fields = Vec::new();
+            match (payload, variant_def.fields.is_empty()) {
+                (None, true) => {}
+                (Some(Json::Object(object)), false) => {
+                    for field in &variant_def.fields {
+                        let value = object.get(&field.name).ok_or_else(|| {
+                            SchemaError::new(format!("missing field `{}`", field.name))
+                        })?;
+                        fields.push(from_json(value, &field.ty, types)?);
+                    }
+                }
+                _ => {
+                    return Err(SchemaError::new(format!(
+                        "`{name}::{variant_name}` has the wrong payload"
+                    )));
+                }
+            }
+            Value::Enum {
+                variant: index as u32,
+                fields,
+            }
+        }
+        Type::Optional { inner } => match json {
+            Json::Null => Value::Optional(None),
+            other => Value::some(from_json(other, inner, types)?),
+        },
+        Type::Record { name } => {
+            let def = types
+                .record_def(name)
+                .ok_or_else(|| SchemaError::new(format!("unknown record `{name}`")))?;
+            let object = json.as_object().ok_or_else(|| mismatch(ty, json))?;
+            for key in object.keys() {
+                if def.field_index(key).is_none() {
+                    return Err(SchemaError::new(format!("`{name}` has no field `{key}`")));
+                }
+            }
+            Value::Record(
+                def.fields
+                    .iter()
+                    .map(|field| {
+                        let value = object.get(&field.name).ok_or_else(|| {
+                            SchemaError::new(format!("missing field `{}`", field.name))
+                        })?;
+                        from_json(value, &field.ty, types)
+                    })
+                    .collect::<Result<_, _>>()?,
+            )
+        }
+        Type::List { inner } => Value::List(
+            json.as_array()
+                .ok_or_else(|| mismatch(ty, json))?
+                .iter()
+                .map(|item| from_json(item, inner, types))
+                .collect::<Result<_, _>>()?,
+        ),
+    };
+    value.check(ty, types)?;
+    Ok(value)
+}
+
+/// Decode named parameters for a command, rejecting unknown names.
+pub fn params_from_json(
+    spec: &CommandSpec,
+    params: &Map<String, Json>,
+    types: &TypeTable,
+) -> Result<Vec<Value>, CommandError> {
+    for key in params.keys() {
+        if !spec.params.iter().any(|param| param.name == *key) {
+            return Err(CommandError::invalid_params(format!(
+                "`{}` has no parameter `{key}`",
+                spec.id
+            )));
+        }
+    }
+    spec.params
+        .iter()
+        .map(|param| {
+            let json = params.get(&param.name).unwrap_or(&Json::Null);
+            if json.is_null() && !matches!(param.ty, Type::Optional { .. } | Type::Unit) {
+                return Err(CommandError::invalid_params(format!(
+                    "`{}` needs the parameter `{}`",
+                    spec.id, param.name
+                )));
+            }
+            from_json(json, &param.ty, types).map_err(|error| {
+                CommandError::invalid_params(format!("`{}`: {}", param.name, error.message))
+            })
+        })
+        .collect()
+}
+
+/// JSON Schema describing values of `ty`.
+pub fn json_schema(ty: &Type, types: &TypeTable) -> Json {
+    match ty {
+        Type::Unit => json!({ "type": "null" }),
+        Type::Bool => json!({ "type": "boolean" }),
+        Type::Int => json!({
+            "anyOf": [{ "type": "integer" }, { "type": "string", "pattern": "^-?[0-9]+$" }]
+        }),
+        Type::Float => json!({ "type": "number" }),
+        Type::Text => json!({ "type": "string" }),
+        Type::Optional { inner } => {
+            json!({ "anyOf": [json_schema(inner, types), { "type": "null" }] })
+        }
+        Type::List { inner } => json!({ "type": "array", "items": json_schema(inner, types) }),
+        Type::Record { name } => match types.record_def(name) {
+            Some(def) => {
+                let mut properties = Map::new();
+                for field in &def.fields {
+                    let mut schema = json_schema(&field.ty, types);
+                    if !field.doc.is_empty() {
+                        schema["description"] = Json::String(field.doc.clone());
+                    }
+                    properties.insert(field.name.clone(), schema);
+                }
+                let required: Vec<_> = def.fields.iter().map(|field| field.name.clone()).collect();
+                json!({
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                    "additionalProperties": false
+                })
+            }
+            None => json!({}),
+        },
+        Type::Enum { name } => match types.enum_def(name) {
+            Some(def) if def.is_unit_only() => json!({
+                "type": "string",
+                "enum": def.variants.iter().map(|variant| variant.name.clone()).collect::<Vec<_>>()
+            }),
+            Some(def) => json!({
+                "oneOf": def.variants.iter().map(|variant| {
+                    if variant.fields.is_empty() {
+                        json!({ "const": variant.name })
+                    } else {
+                        let mut properties = Map::new();
+                        for field in &variant.fields {
+                            properties.insert(field.name.clone(), json_schema(&field.ty, types));
+                        }
+                        json!({
+                            "type": "object",
+                            "properties": { variant.name.clone(): {
+                                "type": "object",
+                                "properties": properties,
+                                "required": variant.fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>()
+                            }},
+                            "required": [variant.name],
+                            "additionalProperties": false
+                        })
+                    }
+                }).collect::<Vec<_>>()
+            }),
+            None => json!({}),
+        },
+    }
+}
+
+/// Input schema of a command, with parameter documentation.
+pub fn command_input_schema(spec: &CommandSpec, types: &TypeTable) -> Json {
+    let mut properties = Map::new();
+    let mut required = Vec::new();
+    for param in &spec.params {
+        let mut schema = json_schema(&param.ty, types);
+        if !param.doc.is_empty() {
+            schema["description"] = Json::String(param.doc.clone());
+        }
+        properties.insert(param.name.clone(), schema);
+        if !matches!(param.ty, Type::Optional { .. }) {
+            required.push(param.name.clone());
+        }
+    }
+    json!({
+        "type": "object",
+        "properties": properties,
+        "required": required,
+        "additionalProperties": false
+    })
+}
+
+/// Messages sent by entries to the engine host.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClientMessage {
+    Hello {
+        protocol_version: u32,
+        entry: String,
+        #[serde(default)]
+        catalog_fingerprint: Option<String>,
+        /// Proof that the client may use this channel, for channels that
+        /// are reachable by other local programs, such as WebSocket.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        token: Option<String>,
+    },
+    Command {
+        request_id: String,
+        engine_id: String,
+        command: String,
+        #[serde(default)]
+        params: Map<String, Json>,
+    },
+    SessionCommand {
+        request_id: String,
+        #[serde(default)]
+        session_id: Option<String>,
+        command: String,
+        #[serde(default)]
+        params: Map<String, Json>,
+    },
+    State {
+        request_id: String,
+    },
+    Catalog {
+        request_id: String,
+    },
+    Sessions {
+        request_id: String,
+    },
+    Subscribe {
+        request_id: String,
+    },
+    /// Stop waiting for a query's answer; the engine may stop early.
+    Cancel {
+        request_id: String,
+    },
+    /// Register the connected page as a live UI session that external
+    /// entries can address. After a reconnect the page asks to `resume`
+    /// its previous session, which the host grants while that id is free
+    /// and belongs to the same engine instance.
+    OpenSession {
+        request_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resume: Option<String>,
+    },
+    /// The page's open window instances, after every change.
+    SessionWindows {
+        windows: Vec<String>,
+    },
+    /// The page's answer to a `session_request`.
+    SessionResult {
+        request_id: String,
+        ok: bool,
+        #[serde(default)]
+        result: Option<Json>,
+        #[serde(default)]
+        error: Option<CommandError>,
+    },
+    /// The page runs players as a media executor.
+    MediaAttach {
+        backend: String,
+        backend_version: String,
+        background_playback: bool,
+        multi_view: bool,
+    },
+    MediaCreate {
+        player: String,
+        owner: String,
+    },
+    MediaBind {
+        player: String,
+        #[serde(default)]
+        url: Option<String>,
+    },
+    MediaRelease {
+        player: String,
+    },
+    /// Every player owned by a closed window instance ends.
+    MediaReleaseWindow {
+        window: String,
+    },
+    MediaView {
+        token: String,
+        #[serde(default)]
+        player: Option<String>,
+        #[serde(default)]
+        window: Option<String>,
+    },
+    /// The executor finished request `request`.
+    MediaComplete {
+        request: String,
+        ok: bool,
+        #[serde(default)]
+        error: Option<CommandError>,
+    },
+    /// What the executor observed for a player and source version.
+    MediaEvent {
+        player: String,
+        source_version: String,
+        observation: MediaObservation,
+    },
+}
+
+/// `bern_media::Observation` on control channels.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MediaObservation {
+    pub phase: String,
+    pub position_ms: i64,
+    #[serde(default)]
+    pub duration_ms: Option<i64>,
+    pub seekable: bool,
+    pub volume: f64,
+    pub muted: bool,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+impl MediaObservation {
+    pub fn from_observation(observation: &bern_media::Observation) -> Self {
+        Self {
+            phase: observation.phase.name().to_string(),
+            position_ms: observation.position_ms,
+            duration_ms: observation.duration_ms,
+            seekable: observation.seekable,
+            volume: observation.volume,
+            muted: observation.muted,
+            error: observation.error.clone(),
+        }
+    }
+
+    pub fn to_observation(&self) -> Result<bern_media::Observation, CommandError> {
+        let phase = bern_media::Phase::ALL
+            .into_iter()
+            .find(|phase| phase.name() == self.phase)
+            .ok_or_else(|| {
+                CommandError::invalid_params(format!("unknown media phase `{}`", self.phase))
+            })?;
+        if !self.volume.is_finite() {
+            return Err(CommandError::invalid_params("volume must be finite"));
+        }
+        Ok(bern_media::Observation {
+            phase,
+            position_ms: self.position_ms,
+            duration_ms: self.duration_ms,
+            seekable: self.seekable,
+            volume: self.volume,
+            muted: self.muted,
+            error: self.error.clone(),
+        })
+    }
+}
+
+/// A request for a media executor reached over a control channel.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MediaRequestMessage {
+    pub request: String,
+    pub player: String,
+    pub source_version: String,
+    pub op: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub muted: Option<bool>,
+}
+
+impl MediaRequestMessage {
+    pub fn from_request(request: &bern_media::ExecRequest) -> Self {
+        use bern_media::ExecOp;
+        let mut message = Self {
+            request: request.request.to_string(),
+            player: request.player.clone(),
+            source_version: request.source_version.to_string(),
+            op: String::new(),
+            url: None,
+            position_ms: None,
+            volume: None,
+            muted: None,
+        };
+        message.op = match &request.op {
+            ExecOp::Load { url } => {
+                message.url = Some(url.clone());
+                "load"
+            }
+            ExecOp::Unload => "unload",
+            ExecOp::Play => "play",
+            ExecOp::Pause => "pause",
+            ExecOp::Seek { position_ms } => {
+                message.position_ms = Some(*position_ms);
+                "seek"
+            }
+            ExecOp::SetVolume { volume } => {
+                message.volume = Some(*volume);
+                "set_volume"
+            }
+            ExecOp::SetMuted { muted } => {
+                message.muted = Some(*muted);
+                "set_muted"
+            }
+            ExecOp::Release => "release",
+        }
+        .to_string();
+        message
+    }
+
+    pub fn to_request(&self) -> Result<bern_media::ExecRequest, CommandError> {
+        use bern_media::ExecOp;
+        let number = |text: &str, what: &str| {
+            text.parse::<u64>()
+                .map_err(|_| CommandError::invalid_params(format!("`{what}` is not a number")))
+        };
+        let missing = |field: &str| {
+            CommandError::invalid_params(format!("media `{}` needs `{field}`", self.op))
+        };
+        let op = match self.op.as_str() {
+            "load" => ExecOp::Load {
+                url: self.url.clone().ok_or_else(|| missing("url"))?,
+            },
+            "unload" => ExecOp::Unload,
+            "play" => ExecOp::Play,
+            "pause" => ExecOp::Pause,
+            "seek" => ExecOp::Seek {
+                position_ms: self.position_ms.ok_or_else(|| missing("position_ms"))?,
+            },
+            "set_volume" => ExecOp::SetVolume {
+                volume: self.volume.ok_or_else(|| missing("volume"))?,
+            },
+            "set_muted" => ExecOp::SetMuted {
+                muted: self.muted.ok_or_else(|| missing("muted"))?,
+            },
+            "release" => ExecOp::Release,
+            other => {
+                return Err(CommandError::invalid_params(format!(
+                    "unknown media operation `{other}`"
+                )));
+            }
+        };
+        Ok(bern_media::ExecRequest {
+            request: number(&self.request, "request")?,
+            player: self.player.clone(),
+            source_version: number(&self.source_version, "source_version")?,
+            op,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SessionInfo {
+    pub session_id: String,
+    pub windows: Vec<String>,
+}
+
+/// Messages sent by the engine host to entries.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ServerMessage {
+    Welcome {
+        protocol_version: u32,
+        engine_id: String,
+        namespace: String,
+        catalog_version: u32,
+        catalog_fingerprint: String,
+        /// Version of the standard media commands and player state.
+        #[serde(default)]
+        media_contract: u32,
+    },
+    Result {
+        request_id: String,
+        status: String,
+        revision: String,
+        ok: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        result: Option<Json>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<CommandError>,
+    },
+    State {
+        request_id: String,
+        revision: String,
+        values: Map<String, Json>,
+    },
+    Catalog {
+        request_id: String,
+        protocol: Box<ProtocolDescriptor>,
+        session_commands: Vec<CommandSpec>,
+        session_types: TypeTable,
+        #[serde(default)]
+        media_commands: Vec<CommandSpec>,
+        #[serde(default)]
+        media_types: TypeTable,
+    },
+    Sessions {
+        request_id: String,
+        sessions: Vec<SessionInfo>,
+    },
+    Update {
+        revision: String,
+        changes: Map<String, Json>,
+    },
+    /// Merged state of every media player, newest revision wins.
+    Media {
+        revision: String,
+        players: Vec<Json>,
+    },
+    Error {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        error: CommandError,
+    },
+    /// The page is registered as UI session `session_id`.
+    SessionOpened {
+        request_id: String,
+        session_id: String,
+    },
+    /// An external entry runs a session command on the page.
+    SessionRequest {
+        request_id: String,
+        command: String,
+        #[serde(default)]
+        params: Map<String, Json>,
+    },
+    /// A request for the page's media executor.
+    MediaRequest(MediaRequestMessage),
+}
+
+/// The welcome message for a descriptor.
+pub fn welcome(engine_id: &str, descriptor: &ProtocolDescriptor) -> ServerMessage {
+    ServerMessage::Welcome {
+        protocol_version: PROTOCOL_VERSION,
+        engine_id: engine_id.to_string(),
+        namespace: descriptor.namespace.clone(),
+        catalog_version: descriptor.version,
+        catalog_fingerprint: descriptor.fingerprint().to_string(),
+        media_contract: bern_media::MEDIA_CONTRACT_VERSION,
+    }
+}
+
+/// Media players as JSON `MediaPlayer` objects.
+pub fn media_players_json(players: &[Value]) -> Vec<Json> {
+    let (types, _) = bern_media::media_catalog();
+    let player = Type::Record {
+        name: "MediaPlayer".into(),
+    };
+    players
+        .iter()
+        .map(|value| to_json(value, &player, &types))
+        .collect()
+}
+
+/// Players from a `media` message, in the media contract's schema.
+pub fn media_players_from_json(players: &[Json]) -> Result<Vec<Value>, SchemaError> {
+    let (types, _) = bern_media::media_catalog();
+    let player = Type::Record {
+        name: "MediaPlayer".into(),
+    };
+    players
+        .iter()
+        .map(|json| from_json(json, &player, &types))
+        .collect()
+}
+
+/// State changes from an `update` or `state` message, by field index.
+pub fn state_from_json(
+    descriptor: &ProtocolDescriptor,
+    values: &Map<String, Json>,
+) -> Result<Vec<(usize, Value)>, SchemaError> {
+    let mut changes = Vec::new();
+    for (name, json) in values {
+        let index = descriptor
+            .state_index(name)
+            .ok_or_else(|| SchemaError::new(format!("unknown state field `{name}`")))?;
+        let field = &descriptor.state[index];
+        changes.push((index, from_json(json, &field.ty, &descriptor.types)?));
+    }
+    changes.sort_by_key(|(index, _)| *index);
+    Ok(changes)
+}
+
+/// Session command parameters as a JSON object, for `session_request`.
+pub fn params_json(spec: &CommandSpec, params: &[Value], types: &TypeTable) -> Map<String, Json> {
+    spec.params
+        .iter()
+        .zip(params)
+        .map(|(param, value)| (param.name.clone(), to_json(value, &param.ty, types)))
+        .collect()
+}
+
+/// State values keyed by field name.
+pub fn state_json(descriptor: &ProtocolDescriptor, values: &[(usize, Value)]) -> Map<String, Json> {
+    values
+        .iter()
+        .filter_map(|(index, value)| {
+            let field = descriptor.state.get(*index)?;
+            Some((
+                field.name.clone(),
+                to_json(value, &field.ty, &descriptor.types),
+            ))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bern_protocol::{EnumDef, FieldDef, RecordDef, VariantDef};
+
+    fn types() -> TypeTable {
+        TypeTable {
+            enums: vec![EnumDef {
+                name: "Route".into(),
+                variants: vec![
+                    VariantDef {
+                        name: "Home".into(),
+                        fields: vec![],
+                        label: None,
+                    },
+                    VariantDef {
+                        name: "Item".into(),
+                        fields: vec![FieldDef {
+                            name: "id".into(),
+                            ty: Type::Int,
+                            doc: String::new(),
+                            content: false,
+                        }],
+                        label: None,
+                    },
+                ],
+            }],
+            records: vec![RecordDef {
+                name: "Row".into(),
+                fields: vec![FieldDef {
+                    name: "route".into(),
+                    ty: Type::Enum {
+                        name: "Route".into(),
+                    },
+                    doc: String::new(),
+                    content: false,
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn values_round_trip_through_json() {
+        let types = types();
+        let ty = Type::list(Type::Record { name: "Row".into() });
+        let value = Value::List(vec![
+            Value::Record(vec![Value::unit_variant(0)]),
+            Value::Record(vec![Value::Enum {
+                variant: 1,
+                fields: vec![Value::Int(9_007_199_254_740_993)],
+            }]),
+        ]);
+        let json = to_json(&value, &ty, &types);
+        assert_eq!(
+            json,
+            json!([{ "route": "Home" }, { "route": { "Item": { "id": "9007199254740993" } } }])
+        );
+        assert_eq!(from_json(&json, &ty, &types).unwrap(), value);
+    }
+
+    #[test]
+    fn decoding_rejects_unknown_names_and_wrong_types() {
+        let types = types();
+        let route = Type::Enum {
+            name: "Route".into(),
+        };
+        assert!(from_json(&json!("Away"), &route, &types).is_err());
+        assert!(
+            from_json(
+                &json!({ "route": "Home", "x": 1 }),
+                &Type::Record { name: "Row".into() },
+                &types
+            )
+            .is_err()
+        );
+        assert!(from_json(&json!(1.5), &Type::Int, &types).is_err());
+        assert_eq!(
+            from_json(&json!("42"), &Type::Int, &types).unwrap(),
+            Value::Int(42)
+        );
+    }
+
+    #[test]
+    fn messages_use_tagged_snake_case() {
+        let message: ClientMessage = serde_json::from_value(json!({
+            "type": "command",
+            "request_id": "1",
+            "engine_id": "e",
+            "command": "player.seek",
+            "params": { "position_ms": 90000 }
+        }))
+        .unwrap();
+        assert!(matches!(message, ClientMessage::Command { .. }));
+        let schema = json_schema(
+            &Type::Enum {
+                name: "Route".into(),
+            },
+            &types(),
+        );
+        assert!(schema["oneOf"].is_array());
+    }
+}

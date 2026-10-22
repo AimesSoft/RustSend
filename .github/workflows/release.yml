@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish all packages (the selected commit must already have its version tag)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      rust: ${{ steps.metadata.outputs.rust }}
+      publish: ${{ steps.metadata.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate version, tag, and release notes
+        id: metadata
+        env:
+          PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+        run: python scripts/release.py validate
+
+  quality:
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Linux development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config cmake libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+      - name: Install pinned Rust
+        env:
+          RUST_VERSION: ${{ needs.metadata.outputs.rust }}
+        run: rustup toolchain install "$RUST_VERSION" --profile minimal --component clippy --component rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-quality-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'vendor/bern/Cargo.lock') }}
+          restore-keys: cargo-quality-${{ runner.os }}-
+      - run: cargo fmt -p rustsend-engine -p rustsend-protocol -p rustsend-ui --check
+      - run: cargo clippy --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui --all-targets --no-deps -- -D warnings
+      - run: cargo test --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui
+      - name: Build the vendored Bern compiler and validate all UI targets
+        run: |
+          cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
+          vendor/bern/target/debug/bern check
+
+  build:
+    name: ${{ matrix.platform }} ${{ matrix.arch }}
+    needs: metadata
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS
+            target: macos
+            arch: arm64
+            runner: macos-15
+          - platform: Linux
+            target: linux
+            arch: x64
+            runner: ubuntu-24.04
+          - platform: Windows
+            target: windows
+            arch: x64
+            runner: windows-2022
+          - platform: Android
+            target: android
+            arch: arm64
+            runner: ubuntu-24.04
+          - platform: iOS
+            target: ios
+            arch: arm64
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    env:
+      PUBLISH: ${{ needs.metadata.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install pinned Rust
+        env:
+          RUST_VERSION: ${{ needs.metadata.outputs.rust }}
+        run: rustup toolchain install "$RUST_VERSION" --profile minimal
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-${{ matrix.target }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'vendor/bern/Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.target }}-${{ runner.os }}-${{ runner.arch }}-
+      - name: Install Linux development libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config cmake libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+      # The Bern Windows backend discovers VS 2022's C++ tools and the Windows
+      # SDK with vswhere, then uses cl/link/rc/cppwinrt. windows-2022 includes
+      # those tools, CMake, curl and tar; NuGet dependencies are versioned by Bern.
+      - name: Check Windows native build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio C++ build tools are required' }
+          cmake --version
+          if ($LASTEXITCODE -ne 0) { throw 'CMake is required' }
+      - name: Check Apple Silicon runner and Xcode
+        if: runner.os == 'macOS'
+        run: |
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          xcrun --find swiftc
+      - uses: actions/setup-java@v5
+        if: matrix.target == 'android'
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+        if: matrix.target == 'android'
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.target == 'android'
+        with:
+          gradle-version: "9.5.1"
+      - name: Install Android SDK and Rust target
+        if: matrix.target == 'android'
+        run: |
+          sdkmanager 'platform-tools' 'platforms;android-37' 'build-tools;36.0.0' 'ndk;29.0.14206865'
+          rustup target add aarch64-linux-android
+          printf 'ANDROID_NDK_HOME=%s/ndk/29.0.14206865\n' "$ANDROID_HOME" >> "$GITHUB_ENV"
+          printf 'BERN_JAVA_HOME=%s\n' "$JAVA_HOME" >> "$GITHUB_ENV"
+      - name: Prepare persistent Android signing key
+        if: matrix.target == 'android'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: python scripts/android_signing.py
+      - name: Install iOS device target
+        if: matrix.target == 'ios'
+        run: rustup target add aarch64-apple-ios
+      - name: Build the vendored Bern compiler
+        run: cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
+      - name: Build native release package
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+          BERN_IOS_DEVICE: "1"
+          BERN_IOS_LOCAL_NETWORK_DESCRIPTION: RustSend uses the local network to discover devices and transfer files.
+          BERN_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BERN_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          BERN_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          case "$BUILD_TARGET" in
+            linux|windows) vendor/bern/target/debug/bern package --target "$BUILD_TARGET" ;;
+            *) vendor/bern/target/debug/bern build --target "$BUILD_TARGET" --release ;;
+          esac
+      - name: Verify Android signature
+        if: matrix.target == 'android'
+        run: '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs target/bern/android/RustSend.apk'
+      - name: Collect packages with standard release names
+        env:
+          PACKAGE_PLATFORM: ${{ matrix.platform }}
+          PACKAGE_ARCH: ${{ matrix.arch }}
+        run: python scripts/release.py collect --platform "$PACKAGE_PLATFORM" --arch "$PACKAGE_ARCH"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RustSend-${{ needs.metadata.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Remove Android signing key
+        if: always() && matrix.target == 'android'
+        run: rm -f "$RUNNER_TEMP/rustsend-release.keystore"
+
+  publish:
+    needs: [metadata, quality, build]
+    if: needs.metadata.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: publish-${{ needs.metadata.outputs.tag }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: RustSend-${{ needs.metadata.outputs.version }}-*
+          merge-multiple: true
+          path: dist
+      - name: Check the complete package set and generate SHA-256 sums
+        run: python scripts/release.py checksums
+      - name: Upload every package to a draft, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish_release.py

@@ -1,0 +1,17 @@
+[package]
+name = "bern-target-api"
+description = "Interface between the Bern compiler and independent UI target modules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bern-media.workspace = true
+bern-svg.workspace = true
+serde_json.workspace = true
+bern-ir.workspace = true
+bern-protocol.workspace = true
+serde.workspace = true
+png = "0.18"
+resvg = { version = "0.45", default-features = false, features = ["text", "system-fonts", "raster-images"] }

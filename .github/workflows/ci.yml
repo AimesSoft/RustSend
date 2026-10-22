@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate release metadata
+        run: python scripts/release.py validate
+      - name: Install development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config cmake libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+      - name: Install pinned Rust and check tools
+        run: |
+          rustup show
+          rustup component add rustfmt clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-ci-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'vendor/bern/Cargo.lock') }}
+          restore-keys: cargo-ci-${{ runner.os }}-
+      - run: cargo fmt -p rustsend-engine -p rustsend-protocol -p rustsend-ui --check
+      - run: cargo clippy --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui --all-targets --no-deps -- -D warnings
+      - run: cargo test --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui
+      - name: Build Bern and validate all platforms
+        run: |
+          cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
+          vendor/bern/target/debug/bern check
