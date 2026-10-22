@@ -23,7 +23,25 @@ def release_info(repository: str, tag: str) -> dict | None:
     )
     if result.returncode:
         if "(HTTP 404)" in result.stderr:
-            return None
+            # GitHub's by-tag endpoint only returns published releases. Drafts
+            # are visible to the same token through the repository release list.
+            listing = subprocess.run(
+                ["gh", "api", "--paginate", "--slurp", f"repos/{repository}/releases?per_page=100"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            if listing.returncode:
+                raise RuntimeError(f"Unable to inspect release drafts: {listing.stderr.strip()}")
+            matches = [
+                item
+                for page in json.loads(listing.stdout)
+                for item in page
+                if item["tag_name"] == tag
+            ]
+            if len(matches) > 1:
+                raise RuntimeError(f"Multiple releases match {tag}; review them before retrying")
+            return matches[0] if matches else None
         raise RuntimeError(f"Unable to inspect the existing release: {result.stderr.strip()}")
     return json.loads(result.stdout)
 
@@ -73,7 +91,11 @@ def main() -> None:
     draft = require_draft(release_info(repository, tag), tag)
     verify_assets(draft, files)
     gh("release", "edit", tag, "--draft=false", "--latest")
-    print(draft["html_url"])
+    published = release_info(repository, tag)
+    if published is None or published["draft"]:
+        raise RuntimeError(f"GitHub did not confirm that {tag} was published")
+    verify_assets(published, files)
+    print(published["html_url"])
 
 
 if __name__ == "__main__":

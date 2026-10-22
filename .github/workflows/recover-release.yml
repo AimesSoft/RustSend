@@ -1,0 +1,68 @@
+name: Recover release publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example v1.0.0)
+        required: true
+        type: string
+      run_id:
+        description: Original Release workflow run containing the successful builds
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the original tagged source and release notes
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - name: Read the recovery helpers from this workflow commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: .publisher
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/publish_release.py
+            /scripts/validate_release_recovery.py
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Verify the tag, source run, and all successful build jobs
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+        run: python .publisher/scripts/validate_release_recovery.py
+      - name: Use the fixed publisher with the tagged sources
+        run: cp .publisher/scripts/publish_release.py scripts/publish_release.py
+      - uses: actions/download-artifact@v5
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+          pattern: RustSend-${{ steps.source.outputs.version }}-*
+          merge-multiple: true
+          path: dist
+      - name: Verify the complete original asset set and generate checksums
+        run: python scripts/release.py checksums
+      - name: Resume the draft and publish the verified original packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish_release.py

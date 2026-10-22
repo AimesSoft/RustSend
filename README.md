@@ -17,7 +17,7 @@
 
 <p>
 <a href="https://github.com/AimesSoft/RustSend/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AimesSoft/RustSend?style=flat-square&color=CE422B"></a>
-<a href="https://github.com/AimesSoft/RustSend/actions/workflows/release.yml"><img alt="Release builds" src="https://img.shields.io/github/actions/workflow/status/AimesSoft/RustSend/release.yml?style=flat-square&label=release"></a>
+<a href="https://github.com/AimesSoft/RustSend/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/AimesSoft/RustSend/ci.yml?style=flat-square&label=CI"></a>
 <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-555555?style=flat-square"></a>
 <img alt="No account required" src="https://img.shields.io/badge/%E6%97%A0%E9%9C%80%E8%B4%A6%E5%8F%B7-%E5%B1%80%E5%9F%9F%E7%BD%91%E7%9B%B4%E8%BF%9E-555555?style=flat-square">
 </p>

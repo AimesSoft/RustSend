@@ -17,7 +17,7 @@ UI declarations, application logic, and file transfers written in Rust. Your fil
 
 <p>
 <a href="https://github.com/AimesSoft/RustSend/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AimesSoft/RustSend?style=flat-square&color=CE422B"></a>
-<a href="https://github.com/AimesSoft/RustSend/actions/workflows/release.yml"><img alt="Release builds" src="https://img.shields.io/github/actions/workflow/status/AimesSoft/RustSend/release.yml?style=flat-square&label=release"></a>
+<a href="https://github.com/AimesSoft/RustSend/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/AimesSoft/RustSend/ci.yml?style=flat-square&label=CI"></a>
 <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-555555?style=flat-square"></a>
 <img alt="No account required" src="https://img.shields.io/badge/No%20account-Local%20network-555555?style=flat-square">
 </p>
