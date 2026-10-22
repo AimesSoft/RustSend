@@ -49,9 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install Linux development libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config cmake libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+        timeout-minutes: 10
+        run: bash scripts/install_linux_dependencies.sh core
       - name: Install pinned Rust
         env:
           RUST_VERSION: ${{ needs.metadata.outputs.rust }}
@@ -123,9 +122,10 @@ jobs:
           restore-keys: cargo-${{ matrix.target }}-${{ runner.os }}-${{ runner.arch }}-
       - name: Install Linux development libraries
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config cmake libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+        timeout-minutes: 15
+        env:
+          LINUX_DEPENDENCIES: ${{ matrix.target == 'linux' && 'gtk' || 'core' }}
+        run: bash scripts/install_linux_dependencies.sh "$LINUX_DEPENDENCIES"
       # The Bern Windows backend discovers VS 2022's C++ tools and the Windows
       # SDK with vswhere, then uses cl/link/rc/cppwinrt. windows-2022 includes
       # those tools, CMake, curl and tar; NuGet dependencies are versioned by Bern.
@@ -138,12 +138,15 @@ jobs:
           if (-not $installation) { throw 'Visual Studio C++ build tools are required' }
           cmake --version
           if ($LASTEXITCODE -ne 0) { throw 'CMake is required' }
-      - name: Check Apple Silicon runner and Xcode
+      - name: Select Xcode 26 and check Apple Silicon SDKs
         if: runner.os == 'macOS'
         run: |
           test "$(uname -m)" = arm64
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
           xcodebuild -version
           xcrun --find swiftc
+          xcrun --sdk macosx --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-version
       - uses: actions/setup-java@v5
         if: matrix.target == 'android'
         with:
@@ -151,6 +154,9 @@ jobs:
           java-version: "21"
       - uses: android-actions/setup-android@v3
         if: matrix.target == 'android'
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: "false"
       - uses: gradle/actions/setup-gradle@v4
         if: matrix.target == 'android'
         with:
