@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The Bern CLI needs DBus on Linux even when the application target is Android.
+# Bern needs DBus; the desktop engine's native file picker needs Wayland.
 set -euo pipefail
 
-packages=(build-essential pkg-config cmake libdbus-1-dev)
+packages=(build-essential pkg-config cmake libdbus-1-dev libwayland-dev)
 case "${1:-core}" in
   core) ;;
   gtk) packages+=(libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev) ;;
@@ -21,7 +21,7 @@ sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
 sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
   apt-get "${apt_options[@]}" -o Dpkg::Options::=--force-confdef \
   -o Dpkg::Options::=--force-confold install -y --no-install-recommends "${packages[@]}"
-pkg-config --modversion dbus-1
+pkg-config --modversion dbus-1 wayland-client
 if [[ "${1:-core}" == gtk ]]; then
   pkg-config --modversion gtk4 libadwaita-1 webkitgtk-6.0
 fi

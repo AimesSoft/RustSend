@@ -49,13 +49,17 @@ RustSend is developed by [AimesSoft](https://github.com/AimesSoft). It keeps Loc
 
 ## Measurements
 
-<!-- RELEASE_MEASUREMENTS: Replace this section with final 1.0.0 measurements before publication. -->
-| Local Release build | Size |
+| Local 1.0.0 Release build | Size |
 | --- | ---: |
-| macOS ARM64 `.app` | About **8.1 MiB** |
-| Android ARM64 `.apk` | About **17.3 MiB** |
+| macOS ARM64 complete `.app` | **8.09 MiB** |
+| macOS ARM64 download `.zip` | **3.80 MiB** |
+| iOS ARM64 complete `.app` | **8.04 MiB** |
+| iOS ARM64 unsigned `.ipa` | **3.81 MiB** |
+| Android ARM64 signed `.apk` | **17.34 MiB** |
 
-These measurements are from local prerelease builds on 2026-10-23: the complete macOS app bundle and the Android APK, excluding debug symbols. Download archives can differ because of compression, bundled tools, and signing. Memory measurements will be added after validation of the final build.
+On macOS, the main process used **40.64 MiB** of physical memory while idle on the Receive page after launch, with a reported process peak of **48.83 MiB**. This scope excludes separate system WebKit helper processes.
+
+Measured on 2026-10-23 using local optimized 1.0.0 builds on Apple Silicon, macOS 27.0.1, with application ID `com.aimessoft.rustsend`. Package sizes exclude debug symbols; signing and compression affect download sizes. See the [measurement record](docs/measurements.md) for exact byte counts and reproduction steps.
 
 ## Features
 
@@ -135,9 +139,11 @@ On Windows, use `vendor\bern\target\release\bern.exe`. Set `--target` to `window
 | --- | --- |
 | macOS | macOS and Xcode 26 or newer |
 | Windows | Windows, MSVC Rust toolchain, Visual Studio C++ build tools, and Windows SDK |
-| Linux | GTK 4.14+, libadwaita 1.5+, and WebKitGTK 6 development packages; Ubuntu 24.04+ recommended |
+| Linux | GTK 4.14+, libadwaita 1.5+, WebKitGTK 6, and D-Bus development packages; Ubuntu 24.04+ recommended |
 | Android | JDK 21, Android SDK 37, NDK, Gradle 9.4+; `rustup target add aarch64-linux-android` |
 | iOS | macOS and the Xcode iOS SDK; `rustup target add aarch64-apple-ios`; see [1.0 release notes](docs/releases/1.0.0.md) for device packaging and signing |
+
+On Ubuntu, run `bash scripts/install_linux_dependencies.sh gtk` to install Linux application build dependencies. Use the `core` argument when building only the Bern CLI and Android target on Linux.
 
 For an iOS device build, set the device target and local-network permission description:
 

@@ -49,13 +49,17 @@ RustSend 由 [AimesSoft](https://github.com/AimesSoft) 开发。它继承 LocalS
 
 ## 实测数据
 
-<!-- RELEASE_MEASUREMENTS: Replace this section with final 1.0.0 measurements before publication. -->
-| 本地 Release 构建 | 体积 |
+| 本地 1.0.0 Release 构建 | 体积 |
 | --- | ---: |
-| macOS ARM64 `.app` | 约 **8.1 MiB** |
-| Android ARM64 `.apk` | 约 **17.3 MiB** |
+| macOS ARM64 完整 `.app` | **8.09 MiB** |
+| macOS ARM64 下载 `.zip` | **3.80 MiB** |
+| iOS ARM64 完整 `.app` | **8.04 MiB** |
+| iOS ARM64 未签名 `.ipa` | **3.81 MiB** |
+| Android ARM64 已签名 `.apk` | **17.34 MiB** |
 
-以上为 2026-10-23 本地预发布版本的构建结果：macOS 统计完整应用包，Android 统计 APK 文件，均不包含调试符号。正式下载包包含的辅助工具、压缩方式与签名会影响最终体积。内存测量记录将在正式构建验证后补充。
+macOS 启动后停留在接收页、无传输时，主进程物理内存占用为 **40.64 MiB**，该进程报告的峰值为 **48.83 MiB**。此口径不包含独立的系统 WebKit 辅助进程。
+
+测量于 2026-10-23，Apple Silicon、macOS 27.0.1，使用本地 1.0.0 优化构建，应用 ID 为 `com.aimessoft.rustsend`。包体不含调试符号，签名和压缩方式会影响下载体积；原始字节数与复现方法见[测量记录](docs/measurements.md)。
 
 ## 能做什么
 
@@ -135,9 +139,11 @@ Windows 上使用 `vendor\bern\target\release\bern.exe`。将 `--target` 改为 
 | --- | --- |
 | macOS | macOS、Xcode 26 或更新版本 |
 | Windows | Windows、MSVC Rust 工具链、Visual Studio C++ 生成工具与 Windows SDK |
-| Linux | GTK 4.14+、libadwaita 1.5+、WebKitGTK 6 开发包；推荐 Ubuntu 24.04+ |
+| Linux | GTK 4.14+、libadwaita 1.5+、WebKitGTK 6 与 D-Bus 开发包；推荐 Ubuntu 24.04+ |
 | Android | JDK 21、Android SDK 37、NDK、Gradle 9.4+；`rustup target add aarch64-linux-android` |
 | iOS | macOS、Xcode iOS SDK；`rustup target add aarch64-apple-ios`；设备包与签名步骤见 [1.0 发布说明](docs/releases/1.0.0.md) |
+
+Ubuntu 上可运行 `bash scripts/install_linux_dependencies.sh gtk` 安装 Linux 应用构建依赖；只在 Linux 构建 Bern CLI 与 Android 目标时使用 `core` 参数。
 
 构建 iOS 真机应用时，设置设备目标和局域网权限说明：
 

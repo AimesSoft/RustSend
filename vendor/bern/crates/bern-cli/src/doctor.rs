@@ -176,10 +176,22 @@ fn macos() -> Status {
     Status::Ready(format!("macOS SDK {sdk}, Swift {swift}"))
 }
 
-/// The iOS simulator SDK and the Rust target for the simulator. A
-/// simulator to run in is `bern run`'s concern, not the build's.
+/// Check the same destination as the SwiftUI build plan. Device releases
+/// do not need the simulator's Rust standard library or SDK.
 fn ios() -> Status {
-    simulator("iOS", "iphonesimulator", "ios")
+    let device = std::env::var("BERN_IOS_DEVICE").is_ok_and(|value| value == "1");
+    let (sdk, target) = ios_requirements(device, std::env::consts::ARCH);
+    apple_mobile("iOS", sdk, target)
+}
+
+fn ios_requirements(device: bool, arch: &str) -> (&'static str, &'static str) {
+    if device {
+        ("iphoneos", "aarch64-apple-ios")
+    } else if arch == "x86_64" {
+        ("iphonesimulator", "x86_64-apple-ios")
+    } else {
+        ("iphonesimulator", "aarch64-apple-ios-sim")
+    }
 }
 
 /// The tvOS simulator SDK and the Rust target for the Apple TV simulator,
@@ -191,11 +203,25 @@ fn tvos() -> Status {
 /// The simulator SDK `sdk` of `system` and the Rust target for its
 /// simulator on this Mac.
 fn simulator(system: &str, sdk: &str, os: &str) -> Status {
+    let target = if std::env::consts::ARCH == "x86_64" {
+        format!("x86_64-apple-{os}")
+    } else {
+        format!("aarch64-apple-{os}-sim")
+    };
+    apple_mobile(system, sdk, &target)
+}
+
+fn apple_mobile(system: &str, sdk: &str, target: &str) -> Status {
+    let destination = if sdk.ends_with("simulator") {
+        "simulator"
+    } else {
+        "device"
+    };
     let fix = format!(
         "install Xcode 26 or newer from the App Store with the {system} platform, then run\nsudo xcode-select --switch /Applications/Xcode.app"
     );
     let Some(version_found) = output("xcrun", &["--sdk", sdk, "--show-sdk-version"]) else {
-        return Status::Missing(format!("no {system} simulator SDK"), fix);
+        return Status::Missing(format!("no {system} {destination} SDK"), fix);
     };
     if version(&version_found).is_none_or(|found| found < MACOS_SDK) {
         return Status::Missing(
@@ -206,11 +232,6 @@ fn simulator(system: &str, sdk: &str, os: &str) -> Status {
             fix,
         );
     }
-    let simulator = if std::env::consts::ARCH == "x86_64" {
-        format!("x86_64-apple-{os}")
-    } else {
-        format!("aarch64-apple-{os}-sim")
-    };
     let Some(sysroot) = output("rustc", &["--print", "sysroot"]) else {
         return Status::Missing(
             "rustc is not installed".into(),
@@ -219,16 +240,16 @@ fn simulator(system: &str, sdk: &str, os: &str) -> Status {
     };
     if !Path::new(&sysroot)
         .join("lib/rustlib")
-        .join(&simulator)
+        .join(target)
         .is_dir()
     {
         return Status::Missing(
-            format!("the {simulator} target is not installed"),
-            format!("rustup target add {simulator}"),
+            format!("the {target} target is not installed"),
+            format!("rustup target add {target}"),
         );
     }
     Status::Ready(format!(
-        "{system} simulator SDK {version_found}, the {simulator} target"
+        "{system} {destination} SDK {version_found}, the {target} target"
     ))
 }
 
@@ -377,6 +398,24 @@ fn web() -> Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ios_device_builds_do_not_require_a_simulator_toolchain() {
+        for arch in ["aarch64", "x86_64"] {
+            assert_eq!(
+                ios_requirements(true, arch),
+                ("iphoneos", "aarch64-apple-ios")
+            );
+        }
+        assert_eq!(
+            ios_requirements(false, "aarch64"),
+            ("iphonesimulator", "aarch64-apple-ios-sim")
+        );
+        assert_eq!(
+            ios_requirements(false, "x86_64"),
+            ("iphonesimulator", "x86_64-apple-ios")
+        );
+    }
 
     #[test]
     fn versions_are_read_from_tool_output() {
