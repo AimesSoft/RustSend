@@ -11,6 +11,7 @@
 #define BERN_WITH_SVG /*bern:svg-enabled*/
 #if BERN_WITH_SVG
 #include <WebView2.h>
+#include <shellapi.h>
 #include <wrl.h>
 #include <winrt/Microsoft.Web.WebView2.Core.h>
 #pragma comment(lib, "WebView2LoaderStatic.lib")
@@ -25,6 +26,7 @@
 #include <shobjidl_core.h>
 #include <wincodec.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
+#include <winrt/Windows.Data.Json.h>
 #include <winrt/Windows.Devices.Input.h>
 #include <winrt/Windows.Graphics.h>
 #include <winrt/Windows.Graphics.Imaging.h>
@@ -146,5 +148,3 @@ constexpr bool kWinUI = false;
 #undef BERN_WINUI
 }
 #endif
-
-#include <winrt/Windows.Data.Json.h>

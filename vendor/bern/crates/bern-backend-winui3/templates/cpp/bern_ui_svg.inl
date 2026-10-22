@@ -1,8 +1,6 @@
 // Animated SVG documents. Edge WebView2 in both Windows front ends.
 // This source is generated only for applications declaring Svg.
 
-#include <shellapi.h>
-
 namespace B {
 
 namespace SvgRuntime {
@@ -252,7 +250,7 @@ inline void Svg(Parent const& p, Ctx const& ctx, SvgProps props) {
         view->state = std::string("{\"playing\":") + (playing ? "true" : "false")
             + ",\"speed\":" + R::Number(speed) + ",\"restart\":" + R::Number(restart)
             + ",\"externalLinks\":" + (props.externalLinks ? "true" : "false")
-            + ",\"data\":" + SvgJsonString(props.data ? props.data(ctx) : "")
+            + ",\"data\":" + SvgJsonString(props.data ? winrt::to_string(props.data(ctx)) : std::string{})
             + ",\"interactive\":" + (props.interactive ? "true" : "false")
             + ",\"fit\":\"" + (props.fit ? props.fit : "contain") + "\"}";
         view->Send();

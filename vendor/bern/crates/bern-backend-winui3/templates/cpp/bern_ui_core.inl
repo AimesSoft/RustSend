@@ -1366,6 +1366,9 @@ struct Win {
 #else
     xaml::Hosting::DesktopWindowXamlSource source{nullptr};
     HWND island = nullptr;
+    bool fullscreen = false;
+    LONG_PTR fullscreenStyle = 0;
+    WINDOWPLACEMENT fullscreenPlacement{sizeof(WINDOWPLACEMENT)};
 #endif
 
     /// `window.idle`: no input for the window's `idle_after` seconds.

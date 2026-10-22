@@ -1330,10 +1330,33 @@ namespace WindowOps {
 inline void ToggleFullscreen(Ctx const& ctx, std::string const& kind) {
     for (auto const& win : WindowManager::all) {
         if (win->Def().id != kind) continue;
+#if BERN_WINUI
         auto app = win->window.AppWindow();
         using winrt::Microsoft::UI::Windowing::AppWindowPresenterKind;
         app.SetPresenter(app.Presenter().Kind() == AppWindowPresenterKind::FullScreen
             ? AppWindowPresenterKind::Overlapped : AppWindowPresenterKind::FullScreen);
+#else
+        // XAML Islands has an ordinary Win32 host, with no WinUI AppWindow.
+        // Keep its exact placement and chrome when entering borderless mode.
+        if (!win->fullscreen) {
+            MONITORINFO monitor{sizeof(MONITORINFO)};
+            if (!GetWindowPlacement(win->hwnd, &win->fullscreenPlacement)
+                || !GetMonitorInfoW(MonitorFromWindow(win->hwnd, MONITOR_DEFAULTTONEAREST), &monitor)) continue;
+            win->fullscreenStyle = GetWindowLongPtrW(win->hwnd, GWL_STYLE);
+            SetWindowLongPtrW(win->hwnd, GWL_STYLE, win->fullscreenStyle & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(win->hwnd, HWND_TOP, monitor.rcMonitor.left, monitor.rcMonitor.top,
+                monitor.rcMonitor.right - monitor.rcMonitor.left,
+                monitor.rcMonitor.bottom - monitor.rcMonitor.top,
+                SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            win->fullscreen = true;
+        } else {
+            SetWindowLongPtrW(win->hwnd, GWL_STYLE, win->fullscreenStyle);
+            SetWindowPlacement(win->hwnd, &win->fullscreenPlacement);
+            SetWindowPos(win->hwnd, nullptr, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            win->fullscreen = false;
+        }
+#endif
     }
 }
 
