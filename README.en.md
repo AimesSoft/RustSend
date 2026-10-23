@@ -26,6 +26,7 @@ UI declarations, application logic, and file transfers written in Rust. Your fil
 
 <p>
 <a href="https://github.com/AimesSoft/RustSend/releases/latest">Download</a> ·
+<a href="#screenshots">Screenshots</a> ·
 <a href="#why-rustsend">Why RustSend</a> ·
 <a href="#measurements">Measurements</a> ·
 <a href="#build-from-source">Build from source</a> ·
@@ -33,6 +34,36 @@ UI declarations, application logic, and file transfers written in Rust. Your fil
 </p>
 
 </div>
+
+## Screenshots
+
+RustSend 1.0.0 running on all five platforms, with compact desktop windows and bottom navigation on phones. Click any image to view it at full size. These captures use the Chinese interface; English is also available.
+
+<table>
+<tr>
+<th>macOS · SwiftUI</th>
+<th>Windows · WinUI 3</th>
+<th>Linux · GTK 4</th>
+</tr>
+<tr>
+<td align="center"><a href="docs/screenshots/macos-receive.png"><img src="docs/screenshots/macos-receive.png" width="260" alt="RustSend Receive page on macOS, with a Rust orange logo and a crustacean device name"></a></td>
+<td align="center"><a href="docs/screenshots/windows-receive.png"><img src="docs/screenshots/windows-receive.png" width="260" alt="RustSend Receive page on a physical Windows 11 PC"></a></td>
+<td align="center"><a href="docs/screenshots/linux-receive.png"><img src="docs/screenshots/linux-receive.png" width="260" alt="RustSend native GTK Receive page in an Ubuntu virtual machine"></a></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<th>Android · Jetpack Compose</th>
+<th>iOS · SwiftUI</th>
+</tr>
+<tr>
+<td align="center"><a href="docs/screenshots/android-receive.png"><img src="docs/screenshots/android-receive.png" width="260" alt="RustSend Receive page and bottom navigation on a physical Xiaomi MIX 2S"></a></td>
+<td align="center"><a href="docs/screenshots/ios-receive.png"><img src="docs/screenshots/ios-receive.png" width="260" alt="RustSend Receive page and native bottom navigation on the iPhone 17 Pro simulator"></a></td>
+</tr>
+</table>
+
+macOS, Windows, and Android were captured on physical devices. Linux runs in an Ubuntu 24.04 ARM64 VM; iOS runs in the iPhone 17 Pro simulator. See the [gallery](docs/screenshots/README.md) for sending, receive approval, completion notifications, settings, and capture details.
 
 ## Why RustSend
 

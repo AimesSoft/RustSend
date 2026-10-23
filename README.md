@@ -26,6 +26,7 @@
 
 <p>
 <a href="https://github.com/AimesSoft/RustSend/releases/latest">下载</a> ·
+<a href="#界面预览">界面预览</a> ·
 <a href="#为什么是-rustsend">为什么是 RustSend</a> ·
 <a href="#实测数据">实测数据</a> ·
 <a href="#从源码构建">从源码构建</a> ·
@@ -33,6 +34,36 @@
 </p>
 
 </div>
+
+## 界面预览
+
+RustSend 1.0.0 在五个平台上的真实运行画面。桌面采用紧凑窗口，手机采用底部导航；点击图片查看原图。
+
+<table>
+<tr>
+<th>macOS · SwiftUI</th>
+<th>Windows · WinUI 3</th>
+<th>Linux · GTK 4</th>
+</tr>
+<tr>
+<td align="center"><a href="docs/screenshots/macos-receive.png"><img src="docs/screenshots/macos-receive.png" width="260" alt="macOS 接收页，Rust 橙色 Logo 和昆虫、甲壳类设备名"></a></td>
+<td align="center"><a href="docs/screenshots/windows-receive.png"><img src="docs/screenshots/windows-receive.png" width="260" alt="Windows 11 实机上的 RustSend 接收页"></a></td>
+<td align="center"><a href="docs/screenshots/linux-receive.png"><img src="docs/screenshots/linux-receive.png" width="260" alt="Ubuntu 虚拟机上的 RustSend 原生 GTK 接收页"></a></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<th>Android · Jetpack Compose</th>
+<th>iOS · SwiftUI</th>
+</tr>
+<tr>
+<td align="center"><a href="docs/screenshots/android-receive.png"><img src="docs/screenshots/android-receive.png" width="260" alt="小米 MIX 2S 安卓实机上的 RustSend 接收页与底部导航"></a></td>
+<td align="center"><a href="docs/screenshots/ios-receive.png"><img src="docs/screenshots/ios-receive.png" width="260" alt="iPhone 17 Pro 模拟器上的 RustSend 接收页与原生底部导航"></a></td>
+</tr>
+</table>
+
+macOS、Windows、Android 为实机截图；Linux 来自 Ubuntu 24.04 ARM64 虚拟机，iOS 来自 iPhone 17 Pro 模拟器。更多[发送、接收确认、完成提示与设置截图](docs/screenshots/README.md)，以及截图环境说明，可在图集中查看。
 
 ## 为什么是 RustSend
 
