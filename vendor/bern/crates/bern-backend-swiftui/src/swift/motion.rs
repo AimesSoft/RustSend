@@ -180,6 +180,13 @@ impl Generator<'_> {
                 appearance == "dark"
             ));
         }
+        if let Some(when) = element.expr("spin") {
+            out.line(format!(
+                ".bernSpin({}, period: {})",
+                self.expr(when),
+                double(element.number("spin_period").unwrap_or(1.0))
+            ));
+        }
         if let Some(when) = element.expr("nudge") {
             out.line(format!(
                 ".bernNudge({}, motion: {})",

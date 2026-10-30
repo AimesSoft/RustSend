@@ -17,7 +17,7 @@ strict = true
 mode = "system"
 
 [resources]
-paths = ["bern/ui/assets/localsend.svg", "bern/ui/assets/rustsend-512.png", "LICENSE", "NOTICE"]
+paths = ["bern/ui/assets/rustsend-512.png", "LICENSE", "NOTICE"]
 
 [layouts]
 compact_below = 640

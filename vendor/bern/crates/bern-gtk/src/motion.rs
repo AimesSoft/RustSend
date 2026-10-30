@@ -270,6 +270,8 @@ mod imp {
         pub layers: RefCell<Vec<(&'static str, Layer)>>,
         /// The move and scale the child gets.
         pub transform: Cell<(f64, f64, f64, f64)>,
+        /// How far the child is turned about its center, in turns.
+        pub turn: Cell<f64>,
         pub allocating: Cell<bool>,
         /// Run after the next allocation, with the box laid out.
         pub laid_out: RefCell<Vec<Box<dyn FnOnce()>>>,
@@ -343,12 +345,14 @@ mod imp {
             let (x, y, sx, sy) = self.obj().transform_at(f64::from(width), f64::from(height));
             self.transform.set((x, y, sx, sy));
             let (w, h) = (width as f32 / 2.0, height as f32 / 2.0);
-            let transform = if x == 0.0 && y == 0.0 && sx == 1.0 && sy == 1.0 {
+            let turn = self.turn.get();
+            let transform = if x == 0.0 && y == 0.0 && sx == 1.0 && sy == 1.0 && turn == 0.0 {
                 None
             } else {
                 Some(
                     gtk::gsk::Transform::new()
                         .translate(&gtk::graphene::Point::new(w + x as f32, h + y as f32))
+                        .rotate(turn as f32 * 360.0)
                         .scale(sx as f32, sy as f32)
                         .translate(&gtk::graphene::Point::new(-w, -h)),
                 )
@@ -894,6 +898,8 @@ pub struct Decor {
     pub nudge_key: Option<(Get, Curve)>,
     /// How large a nudge makes the element.
     pub nudge_scale: Option<f64>,
+    /// While this holds the element turns, one turn in so many seconds.
+    pub spin: Option<(Get, f64)>,
     /// While true, motion is reduced everywhere.
     pub reduce_motion: Option<Get>,
 }
@@ -964,6 +970,9 @@ pub fn Decorate(p: &Parent, ctx: &Ctx, decor: Decor, build: Build) {
         }
         if decor.reveal {
             reveal(&outer, &motion);
+        }
+        if let Some((when, period)) = &decor.spin {
+            spin(ctx, &motion, Rc::clone(when), *period);
         }
         let scale = decor.nudge_scale.unwrap_or(1.06);
         if let Some((when, curve)) = &decor.nudge {
@@ -1107,6 +1116,42 @@ fn reveal(outer: &gtk::Widget, motion: &MotionBox) {
     on_cleanup(move || {
         if let Some((container, controller)) = watched.borrow_mut().take() {
             container.remove_controller(&controller);
+        }
+    });
+}
+
+/// While `when` holds the element turns about its center, one turn every
+/// `period` seconds, counterclockwise below zero; it stops where it is,
+/// and stays still with reduced motion.
+fn spin(ctx: &Ctx, motion: &MotionBox, when: Get, period: f64) {
+    let at = ctx.clone();
+    let ticking: Rc<RefCell<Option<gtk::TickCallbackId>>> = Rc::default();
+    let weak = motion.downgrade();
+    let running = Rc::clone(&ticking);
+    effect(move || {
+        let on = crate::value::truthy(&when(&at)) && !reduced();
+        let Some(motion) = weak.upgrade() else {
+            return;
+        };
+        let mut running = running.borrow_mut();
+        if on && running.is_none() {
+            let last = Cell::new(None::<i64>);
+            *running = Some(motion.add_tick_callback(move |motion, clock| {
+                let now = clock.frame_time();
+                if let Some(before) = last.replace(Some(now)) {
+                    let turn = &motion.imp().turn;
+                    turn.set((turn.get() + (now - before) as f64 / 1e6 / period).rem_euclid(1.0));
+                    motion.queue_allocate();
+                }
+                glib::ControlFlow::Continue
+            }));
+        } else if !on && let Some(id) = running.take() {
+            id.remove();
+        }
+    });
+    on_cleanup(move || {
+        if let Some(id) = ticking.borrow_mut().take() {
+            id.remove();
         }
     });
 }

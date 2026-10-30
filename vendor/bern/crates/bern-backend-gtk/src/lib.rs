@@ -243,6 +243,8 @@ impl Target for GtkLinux {
                 "nudge_key",
                 "nudge_scale",
                 "reduce_motion",
+                "spin",
+                "spin_period",
                 "appear_delay",
                 "stagger",
             ],

@@ -265,7 +265,7 @@ pub fn receive_page(app: transfer::Client) -> impl View {
                 Row {
                     Spacer
                     Column(gap: 12, padding_y: if window.compact { 12 } else { 28 }, align: center) {
-                        Svg(source: "bern/ui/assets/localsend.svg", width: if window.compact { 112 } else { 200 }, height: if window.compact { 112 } else { 200 }, label: tr! { "zh-Hans" => "RustSend 标志", "en" => "RustSend logo" }, playing: app.ready && !app.pending, interactive: false)
+                        Image(source: "bern/ui/assets/rustsend-512.png", width: if window.compact { 112 } else { 200 }, height: if window.compact { 112 } else { 200 }, label: tr! { "zh-Hans" => "RustSend 标志", "en" => "RustSend logo" }, spin: app.ready && !app.pending, spin_period: 15)
                         Text(content: app.alias, style: large_title, font_size: if window.compact { 28 } else { 48 }, lines: 1)
                         if app.ready {
                             Label(title: tr! { "zh-Hans" => "已就绪，可以接收", "en" => "Ready to receive" }, icon: "checkmark.circle", style: headline)

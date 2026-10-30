@@ -84,7 +84,7 @@ Android 文件选择器使用 Storage Access Framework 授权；发送目录会�
 - 桌面使用常驻分段导航，移动端使用底部导航；切页更新内容，保持窗口与导航稳定。
 - 设置按通用／接收／网络分类，采用原生 `Form`、`Section` 与标准控件。配色为黑白灰，Logo 固定为 Rust 橙色 `#CE422B`。
 - 接收请求列表可滚动，接收／拒绝按钮固定在底部。完成提示使用应用内独立浮层，不占用正文布局空间。
-- 静态 Logo 使用 PNG；接收页保留一个 SVG 动画实例，每 15 秒旋转一圈。暂停接收、页面不可见或系统减少动态效果时停止动画。SVG 由 Bern 平台适配显示；Linux 需要 WebKitGTK 6，Windows 使用 WebView2。
+- Logo 使用 PNG。接收页的 Logo 由 Bern 的 `spin` 每 15 秒顺时针转一圈，由各平台的合成器转动，不需要网页视图；暂停接收时停在当时的角度，系统减少动态效果时不转。`localsend.svg` 是 Logo 的源文件，不随应用发布。
 
 重新生成 Logo PNG（需要 `rsvg-convert`）：
 

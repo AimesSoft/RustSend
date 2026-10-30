@@ -196,6 +196,7 @@ fn check_motion(descriptor: &TargetDescriptor, app: &Application) -> Vec<Diagnos
                 if prop.name != "hero_key"
                     && prop.name != "reveal"
                     && prop.name != "appearance"
+                    && prop.name != "spin_period"
                     && element.props.contains_key(prop.name)
                     && !descriptor.motion.contains(&prop.name)
                 {
@@ -213,6 +214,11 @@ fn check_motion(descriptor: &TargetDescriptor, app: &Application) -> Vec<Diagnos
         } else if prop == "nudge" {
             format!(
                 "target `{}` does not nudge: the element stays still",
+                descriptor.id
+            )
+        } else if prop == "spin" {
+            format!(
+                "target `{}` does not spin: the element stays still",
                 descriptor.id
             )
         } else if prop == "idle_area" {

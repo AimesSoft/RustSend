@@ -133,6 +133,7 @@ function runtime(search = "") {
       if (!queries.has(query)) queries.set(query, {
         matches: false,
         addEventListener(_, callback) { this.change = callback; },
+        removeEventListener(_, callback) { if (this.change === callback) this.change = null; },
       });
       return queries.get(query);
     },
@@ -154,6 +155,22 @@ function runtime(search = "") {
   const flushMicrotasks = () => { while (microtasks.length) microtasks.shift()(); };
   return { B: context.B, F: context.F, Element, document: globals.document, navigator: globals.navigator, probes, queries, timers, frames, flushMicrotasks, resizeObservers, mutationObservers };
 }
+
+test("a spinning element turns while its condition holds and stops where it is", () => {
+  const { B, F, Element, flushMicrotasks } = runtime();
+  const scope = new B.Scope();
+  const on = B.cell(false);
+  const node = new Element("div");
+  B.within(scope, () => F.spin(node, () => on.get(), -15));
+  flushMicrotasks();
+  assert.equal(node.style.animation, "bern-spin 15s linear infinite reverse", "counterclockwise below zero");
+  assert.equal(node.style.animationPlayState, "paused");
+  on.set(true); flushMicrotasks();
+  assert.equal(node.style.animationPlayState, "running");
+  on.set(false); flushMicrotasks();
+  assert.equal(node.style.animationPlayState, "paused", "it stops where it is");
+  scope.dispose();
+});
 
 test("the interface language follows the browser's preferences in order", () => {
   const { B, navigator } = runtime();
