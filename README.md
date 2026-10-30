@@ -89,7 +89,7 @@ RustSend 由 [AimesSoft](https://github.com/AimesSoft) 开发。它继承 LocalS
 | iOS ARM64 未签名 `.ipa` | **3.81 MiB** |
 | Android ARM64 已签名 `.apk` | **17.34 MiB** |
 
-macOS 启动后停留在接收页、无传输时，主进程物理内存占用为 **40.64 MiB**，该进程报告的峰值为 **48.83 MiB**。此口径不包含独立的系统 WebKit 辅助进程。
+macOS 启动后停留在接收页、无传输时，主进程物理内存占用为 **40.64 MiB**，该进程报告的峰值为 **48.83 MiB**。此口径不包含 1.0 接收页 Logo 所用网页视图的独立系统 WebKit 辅助进程；Logo 现已改为由系统直接转动的位图，不再有这个进程。
 
 测量于 2026-10-23，Apple Silicon、macOS 27.0.1，使用本地 1.0.0 优化构建，应用 ID 为 `com.aimessoft.rustsend`。包体不含调试符号，签名和压缩方式会影响下载体积；原始字节数与复现方法见[测量记录](docs/measurements.md)。
 
@@ -142,7 +142,7 @@ flowchart LR
     E["Rust 引擎 + LocalSend 核心"] <--> N["生成的原生界面"]
 ```
 
-这里的“完全 Rust 化”指开发者维护的应用界面声明、状态与业务代码全部使用 Rust；SwiftUI、C++/WinRT、Kotlin 等平台代码由 Bern 生成。Logo 的 SVG 动画通过 Bern 的平台适配显示。
+这里的“完全 Rust 化”指开发者维护的应用界面声明、状态与业务代码全部使用 Rust；SwiftUI、C++/WinRT、Kotlin 等平台代码由 Bern 生成。接收页 Logo 的旋转由 Bern 的 `spin` 交给各平台的合成器完成，不需要网页视图。
 
 本仓库在 `vendor/bern/` 固定保存 Bern 源码与本项目所需修复，从仓库直接构建即可，不依赖本机另外检出的框架目录。
 
@@ -171,7 +171,7 @@ Windows 上使用 `vendor\bern\target\release\bern.exe`。将 `--target` 改为 
 | --- | --- |
 | macOS | macOS、Xcode 26 或更新版本 |
 | Windows | Windows、MSVC Rust 工具链、Visual Studio C++ 生成工具与 Windows SDK |
-| Linux | GTK 4.14+、libadwaita 1.5+、WebKitGTK 6 与 D-Bus 开发包；推荐 Ubuntu 24.04+ |
+| Linux | GTK 4.14+、libadwaita 1.5+ 与 D-Bus 开发包；推荐 Ubuntu 24.04+ |
 | Android | JDK 21、Android SDK 37、NDK、Gradle 9.4+；`rustup target add aarch64-linux-android` |
 | iOS | macOS、Xcode iOS SDK；`rustup target add aarch64-apple-ios`；设备包与签名步骤见 [1.0 发布说明](docs/releases/1.0.0.md) |
 

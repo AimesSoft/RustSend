@@ -89,7 +89,7 @@ RustSend is developed by [AimesSoft](https://github.com/AimesSoft). It keeps Loc
 | iOS ARM64 unsigned `.ipa` | **3.81 MiB** |
 | Android ARM64 signed `.apk` | **17.34 MiB** |
 
-On macOS, the main process used **40.64 MiB** of physical memory while idle on the Receive page after launch, with a reported process peak of **48.83 MiB**. This scope excludes separate system WebKit helper processes.
+On macOS, the main process used **40.64 MiB** of physical memory while idle on the Receive page after launch, with a reported process peak of **48.83 MiB**. This scope excludes the separate system WebKit helper process of the web view that showed the 1.0 Receive page logo; the logo is now a bitmap the system turns directly, with no such process.
 
 Measured on 2026-10-23 using local optimized 1.0.0 builds on Apple Silicon, macOS 27.0.1, with application ID `com.aimessoft.rustsend`. Package sizes exclude debug symbols; signing and compression affect download sizes. See the [measurement record](docs/measurements.md) for exact byte counts and reproduction steps.
 
@@ -142,7 +142,7 @@ flowchart LR
     E["Rust engine + LocalSend core"] <--> N["Generated native UI"]
 ```
 
-“Fully Rust” describes the application UI declarations, state, and business logic maintained by developers. Bern generates the SwiftUI, C++/WinRT, and Kotlin platform code. The SVG logo animation uses Bern's platform adapters.
+“Fully Rust” describes the application UI declarations, state, and business logic maintained by developers. Bern generates the SwiftUI, C++/WinRT, and Kotlin platform code. The Receive page logo is turned by each platform's compositor through Bern's `spin`, without a web view.
 
 The repository includes a fixed Bern source snapshot and the required project fixes in `vendor/bern/`. Building does not require a separate framework checkout.
 
@@ -171,7 +171,7 @@ On Windows, use `vendor\bern\target\release\bern.exe`. Set `--target` to `window
 | --- | --- |
 | macOS | macOS and Xcode 26 or newer |
 | Windows | Windows, MSVC Rust toolchain, Visual Studio C++ build tools, and Windows SDK |
-| Linux | GTK 4.14+, libadwaita 1.5+, WebKitGTK 6, and D-Bus development packages; Ubuntu 24.04+ recommended |
+| Linux | GTK 4.14+, libadwaita 1.5+, and D-Bus development packages; Ubuntu 24.04+ recommended |
 | Android | JDK 21, Android SDK 37, NDK, Gradle 9.4+; `rustup target add aarch64-linux-android` |
 | iOS | macOS and the Xcode iOS SDK; `rustup target add aarch64-apple-ios`; see [1.0 release notes](docs/releases/1.0.0.md) for device packaging and signing |
 
