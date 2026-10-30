@@ -30,6 +30,7 @@ UI declarations, application logic, and file transfers written in Rust. Your fil
 <a href="#why-rustsend">Why RustSend</a> ·
 <a href="#measurements">Measurements</a> ·
 <a href="#build-from-source">Build from source</a> ·
+<a href="#contributing">Contributing</a> ·
 <a href="docs/releases/1.0.0.md">1.0 release notes</a>
 </p>
 
@@ -213,6 +214,16 @@ Pushing a `v1.0.0` tag that matches `Bern.toml` and the application crate versio
 macOS and Android have been tested on real devices for transfers in both directions, filename collisions, SHA-256 consistency, compact layouts, completion overlays, and device name synchronization. Automated tests cover real HTTPS transfers, partial acceptance, cancellation and rejection, PINs, invalid checksums, path traversal, browser download approval, and persisted settings.
 
 For other platforms, consult the corresponding Release workflow results. Android picker-authorized imports, clipboard access, and SAF export are implemented but still need complete on-device end-to-end validation. The app does not yet expose every LocalSend feature. Cross-network WebRTC, system share extensions, tray/startup integration, and more languages remain future work.
+
+## Contributing
+
+Start with a small, concrete task. Each issue includes steps, scope, and acceptance criteria.
+
+- [Add English UI screenshots for one platform](https://github.com/AimesSoft/RustSend/issues/1)
+- [Validate Linux x64 package installation and startup](https://github.com/AimesSoft/RustSend/issues/2)
+- [Improve the beginner's Android APK installation guide](https://github.com/AimesSoft/RustSend/issues/3)
+
+Browse more starter tasks in the [good first issue list](https://github.com/AimesSoft/RustSend/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).
 
 ## License and acknowledgments
 

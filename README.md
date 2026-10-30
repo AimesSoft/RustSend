@@ -30,6 +30,7 @@
 <a href="#为什么是-rustsend">为什么是 RustSend</a> ·
 <a href="#实测数据">实测数据</a> ·
 <a href="#从源码构建">从源码构建</a> ·
+<a href="#参与贡献">参与贡献</a> ·
 <a href="docs/releases/1.0.0.md">1.0 更新内容</a>
 </p>
 
@@ -213,6 +214,16 @@ cargo test -p rustsend-engine -- --test-threads=1
 macOS 与 Android 已完成实机双向传输、同名文件保存、SHA-256 一致性、紧凑布局、完成浮层及随机名称同步验证。自动测试覆盖真实 HTTPS 传输、部分接收、取消与拒绝、PIN、校验失败、路径穿越、浏览器下载确认和设置持久化。
 
 其他平台的构建结果以对应 Release workflow 为准。Android 的系统选择器授权后导入、剪贴板及 SAF 导出已实现，端到端实机验收仍待补齐。当前应用未提供 LocalSend 的全部功能；跨网络 WebRTC、系统分享扩展、托盘／开机启动及更多语言仍在后续范围内。
+
+## 参与贡献
+
+欢迎从一个小任务开始；每条 Issue 都写明了操作步骤、任务范围和验收标准。
+
+- [补充一个平台的英文界面截图](https://github.com/AimesSoft/RustSend/issues/1)
+- [验证 Linux x64 发行包的安装与启动](https://github.com/AimesSoft/RustSend/issues/2)
+- [完善 Android APK 新手安装指南](https://github.com/AimesSoft/RustSend/issues/3)
+
+更多入门任务见 [good first issue 列表](https://github.com/AimesSoft/RustSend/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)。
 
 ## 开源协议与致谢
 
