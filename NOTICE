@@ -1,4 +1,4 @@
-RustSend 1.0
+RustSend
 Copyright 2026 AimesSoft and RustSend contributors
 Licensed under the Apache License, Version 2.0 (see LICENSE).
 
@@ -12,9 +12,8 @@ a Rust implementation built with Bern; the logo is recolored Rust orange.
 
 Bern framework
 Source: https://github.com/AimesSoft/Bern
-Baseline revision: ffbdbdf3d41bb6492a8b13d3fa6182ee636606ee
-The source snapshot includes platform integration and build fixes required
-by RustSend. See vendor/bern/UPSTREAM.md. Bern remains MIT-licensed.
+Version: 0.3.2 (crates.io)
+Bern is MIT-licensed.
 
 MIT License
 

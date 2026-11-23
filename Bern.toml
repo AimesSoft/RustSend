@@ -1,8 +1,9 @@
 [app]
 id = "rust_send"
 bundle_id = "com.aimessoft.rustsend"
-version = "1.0.0"
+version = "1.1.0"
 name = { "zh-Hans" = "RustSend", "en" = "RustSend" }
+local_network = true
 
 [app.icon]
 default = "bern/ui/assets/rustsend-512.png"
@@ -57,4 +58,5 @@ android = { network = true, multicast = true }
 
 [targets.ios]
 platform = "ios"
+frontends = ["swiftui"]
 channels = ["ipc"]

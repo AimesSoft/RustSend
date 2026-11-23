@@ -20,6 +20,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  BERN_VERSION: "0.3.2"
 
 jobs:
   metadata:
@@ -61,15 +62,19 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: cargo-quality-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'vendor/bern/Cargo.lock') }}
+          key: cargo-quality-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-quality-${{ runner.os }}-
+      - name: Install Bern CLI
+        run: |
+          mkdir -p "$RUNNER_TEMP/bern-cli"
+          curl -fsSL "https://github.com/AimesSoft/Bern/releases/download/v${BERN_VERSION}/bern-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C "$RUNNER_TEMP/bern-cli"
+          echo "$RUNNER_TEMP/bern-cli" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bern-cli/bern" --version
       - run: cargo fmt -p rustsend-engine -p rustsend-protocol -p rustsend-ui --check
       - run: cargo clippy --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui --all-targets --no-deps -- -D warnings
       - run: cargo test --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui
-      - name: Build the vendored Bern compiler and validate all UI targets
-        run: |
-          cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
-          vendor/bern/target/debug/bern check
+      - name: Validate all UI targets with Bern
+        run: bern check
 
   build:
     name: ${{ matrix.platform }} ${{ matrix.arch }}
@@ -119,7 +124,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: cargo-${{ matrix.target }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'vendor/bern/Cargo.lock') }}
+          key: cargo-${{ matrix.target }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-${{ matrix.target }}-${{ runner.os }}-${{ runner.arch }}-
       - name: Install Linux development libraries
         if: runner.os == 'Linux'
@@ -143,7 +148,12 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           test "$(uname -m)" = arm64
-          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          if [ -d /Applications/Xcode_26.3.app ]; then
+            XCODE=/Applications/Xcode_26.3.app
+          else
+            XCODE=$(ls -d /Applications/Xcode_26*.app /Applications/Xcode_27*.app /Applications/Xcode.app 2>/dev/null | sort -V | tail -n 1)
+          fi
+          sudo xcode-select --switch "$XCODE/Contents/Developer"
           xcodebuild -version
           xcrun --find swiftc
           xcrun --sdk macosx --show-sdk-version
@@ -177,23 +187,40 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: python scripts/android_signing.py
-      - name: Install iOS device target
+      - name: Install iOS targets
         if: matrix.target == 'ios'
-        run: rustup target add aarch64-apple-ios
-      - name: Build the vendored Bern compiler
-        run: cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
+        run: rustup target add aarch64-apple-ios-sim aarch64-apple-ios
+      - name: Install Bern CLI
+        run: |
+          mkdir -p "$RUNNER_TEMP/bern-cli"
+          case "${{ runner.os }}-${{ runner.arch }}" in
+            Linux-X64)
+              curl -fsSL "https://github.com/AimesSoft/Bern/releases/download/v${BERN_VERSION}/bern-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C "$RUNNER_TEMP/bern-cli"
+              ;;
+            macOS-ARM64)
+              curl -fsSL "https://github.com/AimesSoft/Bern/releases/download/v${BERN_VERSION}/bern-aarch64-apple-darwin.tar.gz" | tar -xz -C "$RUNNER_TEMP/bern-cli"
+              ;;
+            Windows-X64)
+              curl -fsSL "https://github.com/AimesSoft/Bern/releases/download/v${BERN_VERSION}/bern-x86_64-pc-windows-msvc.zip" -o "$RUNNER_TEMP/bern-cli.zip"
+              unzip -oq "$RUNNER_TEMP/bern-cli.zip" -d "$RUNNER_TEMP/bern-cli"
+              ;;
+            *)
+              echo "Unsupported runner: ${{ runner.os }}-${{ runner.arch }}" >&2
+              exit 1
+              ;;
+          esac
+          echo "$(cygpath -w "$RUNNER_TEMP/bern-cli" 2>/dev/null || printf '%s' "$RUNNER_TEMP/bern-cli")" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bern-cli/bern" --version
       - name: Build native release package
         env:
           BUILD_TARGET: ${{ matrix.target }}
-          BERN_IOS_DEVICE: "1"
-          BERN_IOS_LOCAL_NETWORK_DESCRIPTION: RustSend uses the local network to discover devices and transfer files.
           BERN_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           BERN_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           BERN_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           case "$BUILD_TARGET" in
-            linux|windows) vendor/bern/target/debug/bern package --target "$BUILD_TARGET" ;;
-            *) vendor/bern/target/debug/bern build --target "$BUILD_TARGET" --release ;;
+            linux|windows|ios) bern package --target "$BUILD_TARGET" ;;
+            *) bern build --target "$BUILD_TARGET" --release ;;
           esac
       - name: Verify Android signature
         if: matrix.target == 'android'

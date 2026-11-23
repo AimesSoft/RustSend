@@ -1,6 +1,5 @@
 [workspace]
 resolver = "3"
-exclude = ["vendor/bern"]
 members = [
     "bern/protocol",
     "bern/engine",
@@ -9,7 +8,7 @@ members = [
 ]
 
 [workspace.dependencies]
-bern = { path = "vendor/bern/crates/bern" }
+bern = "=0.3.2"
 
 # Profiles are only honored in the workspace root manifest.
 

@@ -589,7 +589,7 @@ pub fn settings_page(app: transfer::Client, #[session] draft: SettingsDraft) -> 
                             Row(gap: 12) {
                                 Image(source: "bern/ui/assets/rustsend-512.png", width: 32, height: 32)
                                 Column(gap: 4) {
-                                    Text(content: tr! { "zh-Hans" => "RustSend 1.0.0", "en" => "RustSend 1.0.0" }, style: headline)
+                                    Text(content: tr! { "zh-Hans" => "RustSend 1.1.0", "en" => "RustSend 1.1.0" }, style: headline)
                                     Text(content: tr! { "zh-Hans" => "自由、开源的局域网文件共享", "en" => "Free, open-source local file sharing" }, style: caption, emphasis: secondary)
                                 }
                                 Spacer

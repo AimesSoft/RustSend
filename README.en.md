@@ -31,7 +31,7 @@ UI declarations, application logic, and file transfers written in Rust. Your fil
 <a href="#measurements">Measurements</a> ·
 <a href="#build-from-source">Build from source</a> ·
 <a href="#contributing">Contributing</a> ·
-<a href="docs/releases/1.0.0.md">1.0 release notes</a>
+<a href="docs/releases/1.1.0.md">1.1.0 release notes</a>
 </p>
 
 </div>
@@ -109,15 +109,15 @@ Measured on 2026-10-23 using local optimized 1.0.0 builds on Apple Silicon, macO
 
 Download your platform's files from [GitHub Releases](https://github.com/AimesSoft/RustSend/releases/latest). Release assets use `RustSend-version-OS-architecture` names.
 
-| Platform | Native UI | 1.0 release assets |
+| Platform | Native UI | 1.1.0 release assets |
 | --- | --- | --- |
-| macOS 14+ · Apple Silicon | SwiftUI | `RustSend-1.0.0-macOS-arm64.zip` |
-| Windows · x64 | WinUI 3 | `RustSend-1.0.0-Windows-x64-setup.exe`, `RustSend-1.0.0-Windows-x64.zip` |
-| Linux · x64 | GTK 4 + libadwaita | `RustSend-1.0.0-Linux-x64.deb`, `RustSend-1.0.0-Linux-x64.tar.gz` |
-| Android 8.0+ · ARM64 | Jetpack Compose | `RustSend-1.0.0-Android-arm64.apk` |
-| iOS 17+ · ARM64 | SwiftUI | `RustSend-1.0.0-iOS-arm64-unsigned.ipa` |
+| macOS 14+ · Apple Silicon | SwiftUI | `RustSend-1.1.0-macOS-arm64.zip` |
+| Windows · x64 | WinUI 3 | `RustSend-1.1.0-Windows-x64-setup.exe`, `RustSend-1.1.0-Windows-x64.zip` |
+| Linux · x64 | GTK 4 + libadwaita | `RustSend-1.1.0-Linux-x64.deb`, `RustSend-1.1.0-Linux-x64.tar.gz` |
+| Android 8.0+ · ARM64 | Jetpack Compose | `RustSend-1.1.0-Android-arm64.apk` |
+| iOS 17+ · ARM64 | SwiftUI | `RustSend-1.1.0-iOS-arm64-unsigned.ipa` |
 
-For Linux, Ubuntu 24.04 or newer is recommended; the `.deb` installs GTK 4, libadwaita, WebKitGTK 6, and other dependencies. Windows uses Windows App Runtime 2.5. The macOS app is ad-hoc signed and not notarized; Windows packages do not have an Authenticode signature. The iOS IPA is unsigned and requires your own Apple signing identity before installation. Automatic multicast discovery on iOS also requires Apple's multicast entitlement; use a manual IP address without it. Every release includes `SHA256SUMS.txt` for checking downloads.
+For Linux, Ubuntu 24.04 or newer is recommended; the `.deb` installs GTK 4, libadwaita, libsoup 3, and other dependencies (WebKitGTK 6 is no longer required as of 1.1.0). Windows uses WinUI 3 when Windows App Runtime 2 is present and falls back to system XAML otherwise. The macOS app is ad-hoc signed and not notarized; Windows packages do not have an Authenticode signature. The iOS IPA is unsigned and requires your own Apple signing identity before installation. Automatic multicast discovery on iOS also requires Apple's multicast entitlement; use a manual IP address without it. Every release includes `SHA256SUMS.txt` for checking downloads.
 
 The Android `.dm` file is optional startup optimization data; normal installation only needs the APK. Keep the mobile app in the foreground during transfers. An Android service for continued background transfers is not yet included.
 
@@ -144,48 +144,46 @@ flowchart LR
 
 “Fully Rust” describes the application UI declarations, state, and business logic maintained by developers. Bern generates the SwiftUI, C++/WinRT, and Kotlin platform code. The Receive page logo is turned by each platform's compositor through Bern's `spin`, without a web view.
 
-The repository includes a fixed Bern source snapshot and the required project fixes in `vendor/bern/`. Building does not require a separate framework checkout.
+This repository depends directly on [Bern 0.3.2](https://github.com/AimesSoft/Bern) from crates.io (no vendored framework copy).
 
 ## Build from source
 
-Install [Rust](https://rustup.rs/) and your platform's development tools. `rust-toolchain.toml` pins Rust 1.99.0, which Cargo selects automatically.
+Install [Rust](https://rustup.rs/), the matching `bern` CLI version, and your platform's development tools. `rust-toolchain.toml` pins Rust 1.99.0, which Cargo selects automatically.
 
 ```sh
 git clone https://github.com/AimesSoft/RustSend.git
 cd RustSend
 
-# Build the pinned Bern CLI
-cargo build --manifest-path vendor/bern/Cargo.toml -p bern-cli --release
+# Install the Bern CLI matching Cargo.toml (or download from Bern Releases)
+cargo binstall bern-cli --version 0.3.2
 
 # Check protocol, translation, and UI declarations
-vendor/bern/target/release/bern check
+bern check
 
 # Build on macOS
-vendor/bern/target/release/bern build --target macos --release
+bern build --target macos --release
 open target/bern/macos/RustSend.app
 ```
 
-On Windows, use `vendor\bern\target\release\bern.exe`. Set `--target` to `windows`, `linux`, `android`, or `ios` on a host that supports building that platform. Output is written to `target/bern/<target>/`.
+Set `--target` to `windows`, `linux`, `android`, or `ios` on a host that supports building that platform. Output is written to `target/bern/<target>/`.
 
 | Target | Build tools |
 | --- | --- |
 | macOS | macOS and Xcode 26 or newer |
 | Windows | Windows, MSVC Rust toolchain, Visual Studio C++ build tools, and Windows SDK |
-| Linux | GTK 4.14+, libadwaita 1.5+, and D-Bus development packages; Ubuntu 24.04+ recommended |
+| Linux | GTK 4.14+, libadwaita 1.5+, libsoup 3, and D-Bus development packages; Ubuntu 24.04+ recommended |
 | Android | JDK 21, Android SDK 37, NDK, Gradle 9.4+; `rustup target add aarch64-linux-android` |
-| iOS | macOS and the Xcode iOS SDK; `rustup target add aarch64-apple-ios`; see [1.0 release notes](docs/releases/1.0.0.md) for device packaging and signing |
+| iOS | macOS and the Xcode iOS SDK; `rustup target add aarch64-apple-ios-sim aarch64-apple-ios`; see [1.1.0 release notes](docs/releases/1.1.0.md) for device packaging and signing |
 
-On Ubuntu, run `bash scripts/install_linux_dependencies.sh gtk` to install Linux application build dependencies. Use the `core` argument when building only the Bern CLI and Android target on Linux.
+On Ubuntu, run `bash scripts/install_linux_dependencies.sh gtk` to install Linux application build dependencies. Use the `core` argument when building only the Android target on Linux.
 
-For an iOS device build, set the device target and local-network permission description:
+To package an unsigned iOS device IPA (the local-network permission description is configured automatically via `local_network = true` in `Bern.toml`):
 
 ```sh
-BERN_IOS_DEVICE=1 \
-BERN_IOS_LOCAL_NETWORK_DESCRIPTION='RustSend uses the local network to discover devices and transfer files.' \
-vendor/bern/target/release/bern build --target ios --release
+bern package --target ios
 ```
 
-This creates `target/bern/ios/RustSend.app`; CI packages it as an unsigned IPA. The iOS build has not yet been validated on a physical device.
+This creates `target/bern/dist/RustSend-1.1.0-ios.ipa`. The iOS build has not yet been validated on a physical device.
 
 See the [Release workflow](.github/workflows/release.yml) for complete CI dependencies and packaging commands. To check application code:
 
@@ -203,11 +201,10 @@ cargo test -p rustsend-engine -- --test-threads=1
 | `bern/protocol/` | State, data types, and command contracts |
 | `bern/engine/` | Rust application engine, settings, history, file operations, and transfer tests |
 | `packages/core/` | Upstream LocalSend Rust protocol core |
-| `vendor/bern/` | Fixed Bern source snapshot, licensed under MIT |
 | `.github/workflows/release.yml` | Builds and GitHub Releases for five platforms |
 | `docs/releases/` | Versioned release notes |
 
-Pushing a `v1.0.0` tag that matches `Bern.toml` and the application crate versions triggers builds for all five platforms, creates consistently named packages and checksums, and publishes with the version's release notes. A manual run builds by default; explicitly enabling publication requires an existing matching version tag on that commit.
+Pushing a `v1.1.0` tag that matches `Bern.toml` and the application crate versions triggers builds for all five platforms, creates consistently named packages and checksums, and publishes with the version's release notes. A manual run builds by default; explicitly enabling publication requires an existing matching version tag on that commit.
 
 ## Validation scope
 
@@ -229,4 +226,4 @@ Browse more starter tasks in the [good first issue list](https://github.com/Aime
 
 RustSend uses the [Apache License 2.0](LICENSE), the same license as [LocalSend](https://github.com/localsend/localsend). Its Rust protocol core and logo silhouette come from LocalSend, with upstream copyright and license notices preserved. The RustSend logo uses Rust orange on the original silhouette. See [NOTICE](NOTICE) for upstream revisions, copyright attribution, and third-party notices.
 
-[Bern](https://github.com/AimesSoft/Bern) is licensed under [MIT](vendor/bern/LICENSE). Thank you to the contributors to LocalSend, Bern, and all of our dependencies.
+[Bern](https://github.com/AimesSoft/Bern) is licensed under [MIT](https://github.com/AimesSoft/Bern/blob/master/LICENSE). Thank you to the contributors to LocalSend, Bern, and all of our dependencies.

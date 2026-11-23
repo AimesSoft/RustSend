@@ -379,7 +379,9 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bern"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7db7185df492c903a2511a94d3310163177fcd11c493ed18aeb3d7224e32499"
 dependencies = [
  "bern-command",
  "bern-macros",
@@ -392,16 +394,32 @@ dependencies = [
 
 [[package]]
 name = "bern-command"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad1ba5029a4bd3071312d3aa60dffdfecdeb7678716425a634e9ccb4f73015f1"
 dependencies = [
  "bern-protocol",
+ "block2",
+ "dispatch2",
  "keyring",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-avf-audio",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-media-player",
  "security-framework",
+ "serde_json",
+ "windows",
+ "windows-numerics",
+ "zbus 5.19.0",
 ]
 
 [[package]]
 name = "bern-ir"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b6efa60d9cb24f9d2cf991269a5088d38059b71951852f18c4a6f0873fe69e3"
 dependencies = [
  "bern-protocol",
  "serde",
@@ -410,7 +428,9 @@ dependencies = [
 
 [[package]]
 name = "bern-macros"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64ee1b5167cd442dc920084094af284c1552c74c554ffa0875551a4393b51ab4"
 dependencies = [
  "bern-ir",
  "bern-protocol",
@@ -423,14 +443,18 @@ dependencies = [
 
 [[package]]
 name = "bern-media"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdf14311dadc0f8ef571c4074ea39817cb0680806b805004c9465635da4406a6"
 dependencies = [
  "bern-protocol",
 ]
 
 [[package]]
 name = "bern-protocol"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7311d9710de71310f528388bcb729f49b915a459653ac2f60659b280d470754"
 dependencies = [
  "serde",
  "serde_json",
@@ -438,14 +462,18 @@ dependencies = [
 
 [[package]]
 name = "bern-runtime"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ac66a0723dcf455778422cfaa17613e20a5a2984b5ebffa7ed47b4e45e4314f"
 dependencies = [
  "bern-protocol",
 ]
 
 [[package]]
 name = "bern-script"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01dd683da9446e9c18eda5788aa2a6c7dd00ea660eecd3e406e06538d310c4bb"
 dependencies = [
  "serde",
  "serde_json",
@@ -453,7 +481,9 @@ dependencies = [
 
 [[package]]
 name = "bern-syntax"
-version = "0.1.0"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3a7e034f82eed5fea6f886c355f09ffec4ab3af6bcc9b5b28f36229d512a8e9"
 dependencies = [
  "bern-media",
  "bern-protocol",
@@ -2268,7 +2298,19 @@ dependencies = [
  "bitflags 2.13.1",
  "block2",
  "objc2",
+ "objc2-core-foundation",
  "objc2-core-graphics",
+ "objc2-foundation",
+]
+
+[[package]]
+name = "objc2-avf-audio"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13a380031deed8e99db00065c45937da434ca987c034e13b87e4441f9e4090be"
+dependencies = [
+ "bitflags 2.13.1",
+ "objc2",
  "objc2-foundation",
 ]
 
@@ -2322,6 +2364,20 @@ dependencies = [
  "bitflags 2.13.1",
  "objc2",
  "objc2-core-foundation",
+]
+
+[[package]]
+name = "objc2-media-player"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85f2a98483f6e76313cb85a5a185eaa3cda86a177b13a8852d56cbd0085bf635"
+dependencies = [
+ "bitflags 2.13.1",
+ "block2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -3075,7 +3131,7 @@ dependencies = [
 
 [[package]]
 name = "rustsend-engine"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -3105,14 +3161,14 @@ dependencies = [
 
 [[package]]
 name = "rustsend-protocol"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bern",
 ]
 
 [[package]]
 name = "rustsend-ui"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bern",
  "rustsend-protocol",
@@ -4461,6 +4517,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
+name = "windows"
+version = "0.62.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "527fadee13e0c05939a6a05d5bd6eec6cd2e3dbd648b9f8e447c6518133d8580"
+dependencies = [
+ "windows-collections",
+ "windows-core",
+ "windows-future",
+ "windows-numerics",
+]
+
+[[package]]
+name = "windows-collections"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b2d95af1a8a14a3c7367e1ed4fc9c20e0a26e79551b1454d72583c97cc6610"
+dependencies = [
+ "windows-core",
+]
+
+[[package]]
 name = "windows-core"
 version = "0.62.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4471,6 +4548,17 @@ dependencies = [
  "windows-link",
  "windows-result",
  "windows-strings",
+]
+
+[[package]]
+name = "windows-future"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d6f90251fe18a279739e78025bd6ddc52a7e22f921070ccdc67dde84c605cb"
+dependencies = [
+ "windows-core",
+ "windows-link",
+ "windows-threading",
 ]
 
 [[package]]
@@ -4500,6 +4588,16 @@ name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+
+[[package]]
+name = "windows-numerics"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e2e40844ac143cdb44aead537bbf727de9b044e107a0f1220392177d15b0f26"
+dependencies = [
+ "windows-core",
+ "windows-link",
+]
 
 [[package]]
 name = "windows-result"
@@ -4586,6 +4684,15 @@ dependencies = [
  "windows_x86_64_gnu 0.53.1",
  "windows_x86_64_gnullvm 0.53.1",
  "windows_x86_64_msvc 0.53.1",
+]
+
+[[package]]
+name = "windows-threading"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3949bd5b99cafdf1c7ca86b43ca564028dfe27d66958f2470940f73d86d75b37"
+dependencies = [
+ "windows-link",
 ]
 
 [[package]]

@@ -10,7 +10,6 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,8 +78,7 @@ def collect(args: argparse.Namespace) -> None:
         )
     elif args.platform == "Linux":
         copy_product(built / "dist" / f"RustSend-{version}-linux-{args.arch}.tar.gz", output / f"{name}.tar.gz")
-        deb_arch = {"x64": "amd64", "arm64": "arm64"}[args.arch]
-        copy_product(built / "dist" / f"rust-send_{version}_{deb_arch}.deb", output / f"{name}.deb")
+        copy_product(built / "dist" / f"RustSend-{version}-linux-{args.arch}.deb", output / f"{name}.deb")
     elif args.platform == "Windows":
         for suffix in (".zip", "-setup.exe"):
             copy_product(built / "dist" / f"RustSend-{version}-windows-{args.arch}{suffix}", output / f"{name}{suffix}")
@@ -93,17 +91,7 @@ def collect(args: argparse.Namespace) -> None:
         # Matching dex metadata enables ahead-of-time compilation on Android 12+.
         copy_product(built / "android" / "RustSend.dm", output / f"{name}.dm")
     elif args.platform == "iOS":
-        app = built / "ios" / "RustSend.app"
-        if not (app / "RustSend").is_file():
-            raise FileNotFoundError(f"Missing iOS device executable: {app}")
-        with tempfile.TemporaryDirectory(prefix="rustsend-ipa-") as temporary:
-            payload = Path(temporary) / "Payload"
-            payload.mkdir()
-            shutil.copytree(app, payload / "RustSend.app", symlinks=True)
-            subprocess.run(
-                ["ditto", "-c", "-k", "--keepParent", str(payload), str(output / f"{name}-unsigned.ipa")],
-                check=True,
-            )
+        copy_product(built / "dist" / f"RustSend-{version}-ios.ipa", output / f"{name}-unsigned.ipa")
     else:
         raise ValueError(f"Unknown platform: {args.platform}")
 

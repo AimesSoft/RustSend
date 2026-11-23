@@ -1,10 +1,12 @@
 # 更新记录 / Changelog
 
-## 未发布 / Unreleased
+## 1.1.0 — 2026-11-23
+
+升级至 **Bern 0.3.2**：彻底移除仓库内 `vendor/bern/` 源码快照，直接通过 crates.io 依赖 `bern = "=0.3.2"` 与官方 `bern` 0.3.2 CLI 构建；启用 Bern 原生 `[app].local_network = true` 与 `bern package --target ios` 设备打包，完整更新内容见 [RustSend 1.1.0 更新内容](docs/releases/1.1.0.md)。
 
 接收页旋转的 Logo 改为位图，由系统的合成器转动，不再为它启动网页视图：Linux 包不再依赖 WebKitGTK 6，Windows 不再为它创建 WebView2。转速不变，每 15 秒一圈；暂停接收时停在当时的角度，系统减少动态效果时不转。
 
-The spinning logo on the Receive page is now a bitmap turned by the system compositor instead of an animated SVG in a web view: the Linux package no longer depends on WebKitGTK 6 and Windows no longer creates a WebView2 for it. It still turns once every 15 seconds, stops where it is while receiving is paused, and stays still with reduced motion.
+Upgraded to **Bern 0.3.2**: removed the vendored `vendor/bern/` snapshot in favor of `bern = "=0.3.2"` from crates.io and the official `bern` 0.3.2 CLI, using Bern's native `[app].local_network = true` and `bern package --target ios`. The spinning logo on the Receive page is now a bitmap turned by the system compositor instead of an animated SVG in a web view: the Linux package no longer depends on WebKitGTK 6 and Windows no longer creates a WebView2 for it. It still turns once every 15 seconds, stops where it is while receiving is paused, and stays still with reduced motion.
 
 ## 1.0.0 — 2026-10-23
 

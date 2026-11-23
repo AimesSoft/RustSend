@@ -1,9 +1,9 @@
 # 发布 RustSend
 
 版本来源是 `Bern.toml` 的 `app.version`。`bern/engine`、`bern/protocol` 和
-`bern/ui` 的 Cargo 包版本必须相同；发行标签使用 `v1.0.0`，更新内容保存到
-`docs/releases/1.0.0.md`。本仓库固定了 Bern 源码和 Rust 工具链，CI 不依赖相邻的
-Bern 工作目录。
+`bern/ui` 的 Cargo 包版本必须相同；发行标签使用 `v1.1.0`，更新内容保存到
+`docs/releases/1.1.0.md`。本仓库固定了 Bern 版本（crates.io 的 `bern` 与对应版本
+预编译 `bern` CLI）和 Rust 工具链，CI 不依赖相邻的 Bern 工作目录。
 
 ## Android 签名
 
@@ -48,29 +48,32 @@ SHA-256（API 提供时）；无需重新构建已经成功的 matrix jobs。草
 
 ## 产物和平台要求
 
-以 `1.0.0` 为例：
+以 `1.1.0` 为例：
 
 | 平台 | 文件 | 说明 |
 | --- | --- | --- |
-| macOS | `RustSend-1.0.0-macOS-arm64.zip` | Apple Silicon，应用有 ad-hoc 签名，尚未做 Apple 公证 |
-| Linux | `RustSend-1.0.0-Linux-x64.tar.gz`、`.deb` | GTK ≥ 4.14、libadwaita ≥ 1.5、WebKitGTK 6；Ubuntu 24.04 推荐 `.deb` |
-| Windows | `RustSend-1.0.0-Windows-x64.zip`、`RustSend-1.0.0-Windows-x64-setup.exe` | WinUI 3；Windows App Runtime 2.5；尚未做 Authenticode 签名 |
-| Android | `RustSend-1.0.0-Android-arm64.apk`、`.dm` | Android 8.0+；APK 用持久发布密钥签名；`.dm` 是可选的 AOT 编译元数据 |
-| iOS | `RustSend-1.0.0-iOS-arm64-unsigned.ipa` | iOS 17+ 真机 unsigned 包，需要自己的签名和配置描述文件才能安装 |
+| macOS | `RustSend-1.1.0-macOS-arm64.zip` | Apple Silicon，应用有 ad-hoc 签名，尚未做 Apple 公证 |
+| Linux | `RustSend-1.1.0-Linux-x64.tar.gz`、`.deb` | GTK ≥ 4.14、libadwaita ≥ 1.5、libsoup 3；Ubuntu 24.04 推荐 `.deb` |
+| Windows | `RustSend-1.1.0-Windows-x64.zip`、`RustSend-1.1.0-Windows-x64-setup.exe` | WinUI 3（无运行时回退系统 XAML）；尚未做 Authenticode 签名 |
+| Android | `RustSend-1.1.0-Android-arm64.apk`、`.dm` | Android 8.0+；APK 用持久发布密钥签名；`.dm` 是可选的 AOT 编译元数据 |
+| iOS | `RustSend-1.1.0-iOS-arm64-unsigned.ipa` | iOS 17+ 真机 unsigned 包，需要自己的签名和配置描述文件才能安装 |
 
-iOS 打包通过 `BERN_IOS_DEVICE=1` 选择真机 SDK。UDP 组播发现还需要 Apple
-批准的 multicast entitlement；重签名者应按自己的 provisioning 配置启用。
-未获得该授权时可通过手动 IP 连接。这个 unsigned IPA 不是 App Store 已签名包。
+iOS 打包通过 `bern package --target ios` 直接生成真机 `.ipa`，本地网络权限说明由
+`Bern.toml` 中的 `[app].local_network = true` 自动写入 `Info.plist` 与各语言
+`InfoPlist.strings`。UDP 组播发现还需要 Apple 批准的 multicast entitlement；
+重签名者应按自己的 provisioning 配置启用。未获得该授权时可通过手动 IP 连接。
+这个 unsigned IPA 不是 App Store 已签名包。
 
 Android 的 `.dm` 可与同名 APK 一起通过 `adb install-multiple -r` 安装到
 Android 12+；直接安装 APK 也能使用，系统会在后台完成编译优化。
 
-每个运行器都从 `vendor/bern` 构建 CLI：
+每个运行器从 [AimesSoft/Bern Releases](https://github.com/AimesSoft/Bern/releases)
+下载与 `Cargo.toml` 匹配的官方预编译 `bern` CLI：
 
 ```sh
-cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
+cargo binstall bern-cli
 ```
 
-Linux 和 Windows 使用 `bern package --target <平台>`；其他平台使用
+Linux、Windows 和 iOS 使用 `bern package --target <平台>`；macOS 和 Android 使用
 `bern build --target <平台> --release`，随后由 `scripts/release.py collect`
 统一发行包命名。iOS 包明确带有 `-unsigned` 后缀。

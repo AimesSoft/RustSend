@@ -31,7 +31,7 @@
 <a href="#实测数据">实测数据</a> ·
 <a href="#从源码构建">从源码构建</a> ·
 <a href="#参与贡献">参与贡献</a> ·
-<a href="docs/releases/1.0.0.md">1.0 更新内容</a>
+<a href="docs/releases/1.1.0.md">1.1.0 更新内容</a>
 </p>
 
 </div>
@@ -107,17 +107,17 @@ macOS 启动后停留在接收页、无传输时，主进程物理内存占用�
 
 ## 下载与使用
 
-在 [GitHub Releases](https://github.com/AimesSoft/RustSend/releases/latest) 下载对应平台的文件。1.0 发行资产统一使用 `RustSend-版本-操作系统-架构` 命名。
+在 [GitHub Releases](https://github.com/AimesSoft/RustSend/releases/latest) 下载对应平台的文件。发行资产统一使用 `RustSend-版本-操作系统-架构` 命名。
 
-| 平台 | 原生界面 | 1.0 发行包 |
+| 平台 | 原生界面 | 1.1.0 发行包 |
 | --- | --- | --- |
-| macOS 14+ · Apple Silicon | SwiftUI | `RustSend-1.0.0-macOS-arm64.zip` |
-| Windows · x64 | WinUI 3 | `RustSend-1.0.0-Windows-x64-setup.exe`、`RustSend-1.0.0-Windows-x64.zip` |
-| Linux · x64 | GTK 4 + libadwaita | `RustSend-1.0.0-Linux-x64.deb`、`RustSend-1.0.0-Linux-x64.tar.gz` |
-| Android 8.0+ · ARM64 | Jetpack Compose | `RustSend-1.0.0-Android-arm64.apk` |
-| iOS 17+ · ARM64 | SwiftUI | `RustSend-1.0.0-iOS-arm64-unsigned.ipa` |
+| macOS 14+ · Apple Silicon | SwiftUI | `RustSend-1.1.0-macOS-arm64.zip` |
+| Windows · x64 | WinUI 3 | `RustSend-1.1.0-Windows-x64-setup.exe`、`RustSend-1.1.0-Windows-x64.zip` |
+| Linux · x64 | GTK 4 + libadwaita | `RustSend-1.1.0-Linux-x64.deb`、`RustSend-1.1.0-Linux-x64.tar.gz` |
+| Android 8.0+ · ARM64 | Jetpack Compose | `RustSend-1.1.0-Android-arm64.apk` |
+| iOS 17+ · ARM64 | SwiftUI | `RustSend-1.1.0-iOS-arm64-unsigned.ipa` |
 
-Linux 推荐 Ubuntu 24.04 或更新版本，通过 `.deb` 安装 GTK 4、libadwaita 与 WebKitGTK 6 等依赖。Windows 使用 Windows App Runtime 2.5。macOS 包采用临时签名、尚未公证；Windows 包未配置 Authenticode 签名。iOS 的 IPA 未签名，需要用自己的 Apple 开发者身份签名后安装；自动组播发现还需要 Apple 批准的组播权限，未授权时可通过手动 IP 连接。每次发布附带 `SHA256SUMS.txt`，可核对下载文件。
+Linux 推荐 Ubuntu 24.04 或更新版本，通过 `.deb` 安装 GTK 4、libadwaita 与 libsoup 3 等依赖（1.1.0 起不再依赖 WebKitGTK 6）。Windows 在已安装 Windows App Runtime 2 时使用 WinUI 3，否则自动回退至系统 XAML。macOS 包采用临时签名、尚未公证；Windows 包未配置 Authenticode 签名。iOS 的 IPA 未签名，需要用自己的 Apple 开发者身份签名后安装；自动组播发现还需要 Apple 批准的组播权限，未授权时可通过手动 IP 连接。每次发布附带 `SHA256SUMS.txt`，可核对下载文件。
 
 Android 的同名 `.dm` 是可选的启动优化配置，普通安装只需 APK。需要主动传输时请保持移动端应用在前台；Android 持续后台传输服务尚未接入。
 
@@ -144,48 +144,46 @@ flowchart LR
 
 这里的“完全 Rust 化”指开发者维护的应用界面声明、状态与业务代码全部使用 Rust；SwiftUI、C++/WinRT、Kotlin 等平台代码由 Bern 生成。接收页 Logo 的旋转由 Bern 的 `spin` 交给各平台的合成器完成，不需要网页视图。
 
-本仓库在 `vendor/bern/` 固定保存 Bern 源码与本项目所需修复，从仓库直接构建即可，不依赖本机另外检出的框架目录。
+本仓库直接通过 crates.io 依赖官方发布的 [Bern 0.3.2](https://github.com/AimesSoft/Bern)（不再在仓库中内置框架副本）。
 
 ## 从源码构建
 
-安装 [Rust](https://rustup.rs/) 与目标平台的开发工具。仓库的 `rust-toolchain.toml` 固定 Rust 1.99.0，首次执行 Cargo 时会自动选择该版本。
+安装 [Rust](https://rustup.rs/)、对应版本的 `bern` CLI 与目标平台的开发工具。仓库的 `rust-toolchain.toml` 固定 Rust 1.99.0，首次执行 Cargo 时会自动选择该版本。
 
 ```sh
 git clone https://github.com/AimesSoft/RustSend.git
 cd RustSend
 
-# 构建仓库内固定版本的 Bern CLI
-cargo build --manifest-path vendor/bern/Cargo.toml -p bern-cli --release
+# 安装与 Cargo.toml 匹配版本的 Bern CLI（也可从 Bern Releases 直接下载）
+cargo binstall bern-cli --version 0.3.2
 
 # 检查协议、翻译与 UI 声明
-vendor/bern/target/release/bern check
+bern check
 
 # 在 macOS 上构建应用
-vendor/bern/target/release/bern build --target macos --release
+bern build --target macos --release
 open target/bern/macos/RustSend.app
 ```
 
-Windows 上使用 `vendor\bern\target\release\bern.exe`。将 `--target` 改为 `windows`、`linux`、`android` 或 `ios`，并在能构建该平台的主机上运行。构建产物位于 `target/bern/<target>/`。
+将 `--target` 改为 `windows`、`linux`、`android` 或 `ios`，并在能构建该平台的主机上运行。构建产物位于 `target/bern/<target>/`。
 
 | 目标 | 构建环境 |
 | --- | --- |
 | macOS | macOS、Xcode 26 或更新版本 |
 | Windows | Windows、MSVC Rust 工具链、Visual Studio C++ 生成工具与 Windows SDK |
-| Linux | GTK 4.14+、libadwaita 1.5+ 与 D-Bus 开发包；推荐 Ubuntu 24.04+ |
+| Linux | GTK 4.14+、libadwaita 1.5+、libsoup 3 与 D-Bus 开发包；推荐 Ubuntu 24.04+ |
 | Android | JDK 21、Android SDK 37、NDK、Gradle 9.4+；`rustup target add aarch64-linux-android` |
-| iOS | macOS、Xcode iOS SDK；`rustup target add aarch64-apple-ios`；设备包与签名步骤见 [1.0 发布说明](docs/releases/1.0.0.md) |
+| iOS | macOS、Xcode iOS SDK；`rustup target add aarch64-apple-ios-sim aarch64-apple-ios`；设备包与签名步骤见 [1.1.0 发布说明](docs/releases/1.1.0.md) |
 
-Ubuntu 上可运行 `bash scripts/install_linux_dependencies.sh gtk` 安装 Linux 应用构建依赖；只在 Linux 构建 Bern CLI 与 Android 目标时使用 `core` 参数。
+Ubuntu 上可运行 `bash scripts/install_linux_dependencies.sh gtk` 安装 Linux 应用构建依赖；只在 Linux 构建 Android 目标时使用 `core` 参数。
 
-构建 iOS 真机应用时，设置设备目标和局域网权限说明：
+打包 iOS 真机未签名 IPA（本地网络权限说明已通过 `Bern.toml` 中的 `local_network = true` 自动写入）：
 
 ```sh
-BERN_IOS_DEVICE=1 \
-BERN_IOS_LOCAL_NETWORK_DESCRIPTION='RustSend uses the local network to discover devices and transfer files.' \
-vendor/bern/target/release/bern build --target ios --release
+bern package --target ios
 ```
 
-产物为 `target/bern/ios/RustSend.app`；CI 将其打包成未签名 IPA。此构建尚未完成 iOS 真机验收。
+产物位于 `target/bern/dist/RustSend-1.1.0-ios.ipa`。此构建尚未完成 iOS 真机验收。
 
 各平台 CI 的完整依赖与打包命令见 [Release workflow](.github/workflows/release.yml)。应用代码检查：
 
@@ -203,11 +201,10 @@ cargo test -p rustsend-engine -- --test-threads=1
 | `bern/protocol/` | 状态、数据类型和命令契约 |
 | `bern/engine/` | Rust 业务引擎、设置、历史、文件操作与传输测试 |
 | `packages/core/` | LocalSend 上游 Rust 协议核心 |
-| `vendor/bern/` | 固定版本的 Bern 框架源码，使用 MIT 许可证 |
 | `.github/workflows/release.yml` | 五个平台的构建与 GitHub Release 发布 |
 | `docs/releases/` | 逐版本更新说明 |
 
-推送与 `Bern.toml` 及应用 crate 版本一致的 `v1.0.0` 标签后，Release workflow 编译五个平台、生成统一命名的包与校验和，并使用对应版本的更新说明发布。手动运行默认只构建，显式选择发布时要求提交已经带有匹配的版本标签。
+推送与 `Bern.toml` 及应用 crate 版本一致的 `v1.1.0` 标签后，Release workflow 编译五个平台、生成统一命名的包与校验和，并使用对应版本的更新说明发布。手动运行默认只构建，显式选择发布时要求提交已经带有匹配的版本标签。
 
 ## 验证范围
 
@@ -229,4 +226,4 @@ macOS 与 Android 已完成实机双向传输、同名文件保存、SHA-256 一
 
 RustSend 使用与 [LocalSend](https://github.com/localsend/localsend) 相同的 [Apache License 2.0](LICENSE)。LocalSend 的 Rust 协议核心与 Logo 轮廓来自上游项目，保留其版权与许可证；RustSend Logo 在原轮廓上使用 Rust 橙色。上游版本、版权归属与第三方声明见 [NOTICE](NOTICE)。
 
-[Bern](https://github.com/AimesSoft/Bern) 使用 [MIT 许可证](vendor/bern/LICENSE)。感谢 LocalSend、Bern 及所有依赖项目的贡献者。
+[Bern](https://github.com/AimesSoft/Bern) 使用 [MIT 许可证](https://github.com/AimesSoft/Bern/blob/master/LICENSE)。感谢 LocalSend、Bern 及所有依赖项目的贡献者。

@@ -14,6 +14,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  BERN_VERSION: "0.3.2"
 
 jobs:
   check:
@@ -38,12 +39,16 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: cargo-ci-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'vendor/bern/Cargo.lock') }}
+          key: cargo-ci-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-ci-${{ runner.os }}-
+      - name: Install Bern CLI
+        run: |
+          mkdir -p "$RUNNER_TEMP/bern-cli"
+          curl -fsSL "https://github.com/AimesSoft/Bern/releases/download/v${BERN_VERSION}/bern-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C "$RUNNER_TEMP/bern-cli"
+          echo "$RUNNER_TEMP/bern-cli" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bern-cli/bern" --version
       - run: cargo fmt -p rustsend-engine -p rustsend-protocol -p rustsend-ui --check
       - run: cargo clippy --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui --all-targets --no-deps -- -D warnings
       - run: cargo test --locked -p rustsend-engine -p rustsend-protocol -p rustsend-ui
-      - name: Build Bern and validate all platforms
-        run: |
-          cargo build --locked --manifest-path vendor/bern/Cargo.toml -p bern-cli
-          vendor/bern/target/debug/bern check
+      - name: Validate all UI targets with Bern
+        run: bern check
